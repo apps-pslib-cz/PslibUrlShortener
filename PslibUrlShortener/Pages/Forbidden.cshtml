@@ -1,0 +1,32 @@
+﻿@page "/forbidden"
+@using Microsoft.AspNetCore.Http
+@inject IHttpContextAccessor HttpContextAccessor
+
+@{
+    ViewData["Title"] = "Přístup zamítnut";
+    var returnUrl = HttpContextAccessor.HttpContext?.Request.Query["returnUrl"].ToString();
+}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="alert alert-danger d-flex align-items-start" role="alert">
+                <div class="me-3 fs-3">🚫</div>
+                <div>
+                    <h1 class="h4 mb-2">Přístup zamítnut</h1>
+                    <p class="mb-2">Jste přihlášeni, ale nemáte požadované oprávnění.</p>
+                    <ul class="mb-3">
+                        <li>Potřebujete příslušný claim/roli (např. <code>shortener.user</code> nebo <code>shortener.admin</code>).</li>
+                        <li>Když si myslíte, že jde o chybu, obraťte se na správce.</li>
+                    </ul>
+                    <div class="d-flex gap-2">
+                        @if (!string.IsNullOrWhiteSpace(returnUrl))
+                        {
+                            <a class="btn btn-outline-secondary" href="@returnUrl">← Zpět</a>
+                        }
+                        <a class="btn btn-primary" href="/">Domů</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

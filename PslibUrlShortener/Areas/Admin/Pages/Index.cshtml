@@ -1,4 +1,278 @@
 ﻿@page
 @model PslibUrlShortener.Areas.Admin.Pages.IndexModel
 @{
+    ViewData["Title"] = "Správa odkazů";
+
+    var pageNo = Model.PageNo ?? 1;
+    var pageSize = Model.PageSize ?? 20;
+    var first = (Model.TotalCount == 0) ? 0 : (pageNo - 1) * pageSize + 1;
+    var last = Math.Min(pageNo * pageSize, Model.TotalCount);
+
+    var breadcrumbs = new List<(string, string?)> {
+        ("Administrace", null),
+        ("Odkazy", null)
+    };
 }
+<partial name="/Pages/Shared/_Breadcrumbs.cshtml" model="breadcrumbs" />
+
+<h1 class="mb-3">@ViewData["Title"]</h1>
+
+<div>
+    <a asp-area="Admin" asp-page="Create" class="btn btn-primary">Nový odkaz</a>
+</div>
+
+<div class="d-flex flex-wrap align-items-end justify-content-between gap-2 mb-3">
+    <form method="get" class="row g-2 align-items-end">
+        <div class="col-12 col-md-3">
+            <label for="Search" class="form-label">Hledat</label>
+            <input id="Search" type="text" name="Search" value="@Model.Search" class="form-control" placeholder="kód, URL, titulek…" />
+        </div>
+        <div class="col-12 col-md-3">
+            <label for="Owner" class="form-label">Vlastník</label>
+            <input id="Owner" type="text" name="Owner" value="@Model.Owner" class="form-control" placeholder="jméno / email / sub…" />
+        </div>
+        <div class="col-6 col-md-2">
+            <label for="Status" class="form-label">Stav</label>
+            <select id="Status" name="Status" class="form-select">
+                @{
+                    string[] statuses = new[] { "all", "enabled", "disabled", "active", "scheduled", "expired", "deleted" };
+                }
+                @foreach (var s in statuses)
+                {
+                    <option value="@s" selected="@(string.Equals(Model.Status, s, StringComparison.OrdinalIgnoreCase) ? "selected" : null)">
+                        @s
+                    </option>
+                }
+            </select>
+        </div>
+        <div class="col-6 col-md-2">
+            <label for="CreatedFrom" class="form-label">Vytvořeno od</label>
+            <input id="CreatedFrom" class="form-control" type="date" name="CreatedFrom"
+                   value="@(Model.CreatedFrom?.ToString("yyyy-MM-dd"))" />
+        </div>
+        <div class="col-6 col-md-2">
+            <label for="CreatedTo" class="form-label">Vytvořeno do</label>
+            <input id="CreatedTo" class="form-control" type="date" name="CreatedTo"
+                   value="@(Model.CreatedTo?.ToString("yyyy-MM-dd"))" />
+        </div>
+
+        <input type="hidden" name="PageSize" value="@pageSize" />
+        <input type="hidden" name="OrderBy" value="@Model.OrderBy" />
+        <div class="col-12">
+            <button type="submit" class="btn btn-primary">Filtrovat</button>
+            <a asp-page="./Index"
+               asp-route-PageSize="@pageSize"
+               asp-route-OrderBy="@Model.OrderBy"
+               class="btn btn-secondary">Reset</a>
+        </div>
+    </form>
+
+    <div>
+        <pagesize-selector page-size="@(pageSize)"
+                           sizes="@(Model.PageSizeNumbers)"
+                           page-no="@(pageNo)"
+                           page="./Index"
+                           route-values="@(new Dictionary<string,string?> {
+                                                          { "Search", Model.Search },
+                                                          { "Owner", Model.Owner },
+                                                          { "Status", Model.Status },
+                                                          { "CreatedFrom", Model.CreatedFrom?.ToString("yyyy-MM-dd") },
+                                                          { "CreatedTo", Model.CreatedTo?.ToString("yyyy-MM-dd") },
+                                                          { "OrderBy", Model.OrderBy }
+                                                      })">
+        </pagesize-selector>
+    </div>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-striped align-middle">
+        <thead>
+            <tr>
+                <th>
+                    <a asp-page="./Index"
+                       asp-route-Search="@Model.Search"
+                       asp-route-Owner="@Model.Owner"
+                       asp-route-Status="@Model.Status"
+                       asp-route-CreatedFrom="@(Model.CreatedFrom?.ToString("yyyy-MM-dd"))"
+                       asp-route-CreatedTo="@(Model.CreatedTo?.ToString("yyyy-MM-dd"))"
+                       asp-route-PageSize="@pageSize"
+                       asp-route-OrderBy="@(Model.OrderBy == "CodeAsc" ? "CodeDesc" : "CodeAsc")">
+                        Kód
+                        @if (Model.OrderBy == "CodeAsc")
+                        {
+                            <span aria-hidden="true">↑</span>
+                        }
+                        else if (Model.OrderBy == "CodeDesc")
+                        {
+
+                            <span aria-hidden="true">↓</span>
+                        }
+                    </a>
+                </th>
+                <th>Krátká adresa</th>
+                <th>Cílová URL</th>
+                <th>
+                    <a asp-page="./Index"
+                       asp-route-Search="@Model.Search"
+                       asp-route-Owner="@Model.Owner"
+                       asp-route-Status="@Model.Status"
+                       asp-route-CreatedFrom="@(Model.CreatedFrom?.ToString("yyyy-MM-dd"))"
+                       asp-route-CreatedTo="@(Model.CreatedTo?.ToString("yyyy-MM-dd"))"
+                       asp-route-PageSize="@pageSize"
+                       asp-route-OrderBy="@(Model.OrderBy == "OwnerAsc" ? "OwnerDesc" : "OwnerAsc")">
+                        Vlastník
+                        @if (Model.OrderBy == "OwnerAsc")
+                        {
+                            <span aria-hidden="true">↑</span>
+                        }
+                        else if (Model.OrderBy == "OwnerDesc")
+                        {
+
+                            <span aria-hidden="true">↓</span>
+                        }
+                    </a>
+                </th>
+                <th>
+                    <a asp-page="./Index"
+                       asp-route-Search="@Model.Search"
+                       asp-route-Owner="@Model.Owner"
+                       asp-route-Status="@Model.Status"
+                       asp-route-CreatedFrom="@(Model.CreatedFrom?.ToString("yyyy-MM-dd"))"
+                       asp-route-CreatedTo="@(Model.CreatedTo?.ToString("yyyy-MM-dd"))"
+                       asp-route-PageSize="@pageSize"
+                       asp-route-OrderBy="@(Model.OrderBy == "CreatedAsc" ? "CreatedDesc" : "CreatedAsc")">
+                        Vytvořeno
+                        @if (Model.OrderBy == "CreatedAsc")
+                        {
+                            <span aria-hidden="true">↑</span>
+                        }
+                        else if (Model.OrderBy == "CreatedDesc")
+                        {
+
+                            <span aria-hidden="true">↓</span>
+                        }
+                    </a>
+                </th>
+                <th>
+                    <a asp-page="./Index"
+                       asp-route-Search="@Model.Search"
+                       asp-route-Owner="@Model.Owner"
+                       asp-route-Status="@Model.Status"
+                       asp-route-CreatedFrom="@(Model.CreatedFrom?.ToString("yyyy-MM-dd"))"
+                       asp-route-CreatedTo="@(Model.CreatedTo?.ToString("yyyy-MM-dd"))"
+                       asp-route-PageSize="@pageSize"
+                       asp-route-OrderBy="@(Model.OrderBy == "ClicksAsc" ? "ClicksDesc" : "ClicksAsc")">
+                        Kliky
+                        @if (Model.OrderBy == "ClicksAsc")
+                        {
+                            <span aria-hidden="true">↑</span>
+                        }
+                        else if (Model.OrderBy == "ClicksDesc")
+                        {
+
+                            <span aria-hidden="true">↓</span>
+                        }
+                    </a>
+                </th>
+                <th>Stav</th>
+                <th class="text-end">Akce</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (!Model.Items.Any())
+            {
+                <tr><td colspan="8" class="text-center">Žádné odkazy.</td></tr>
+            }
+            else
+            {
+                @foreach (var l in Model.Items)
+                {
+                    <tr class="@(l.DeletedAtUtc != null ? "table-danger" : "")">
+                        <td><code>@l.Code</code></td>
+                        <td>
+                            <a href="@l.ShortUrlDisplay" target="_blank" rel="noopener">@l.ShortUrlDisplay</a>
+                        </td>
+                        <td class="text-truncate" style="max-width:32rem;">
+                            <a href="@l.TargetUrl" target="_blank" rel="noopener">@l.TargetUrl</a>
+                        </td>
+                        <td>@l.OwnerDisplay</td>
+                        <td>@l.CreatedAt.ToLocalTime()</td>
+                        <td>@l.Clicks</td>
+                        <td>
+                            @{
+                                var now = DateTime.UtcNow;
+                                var active = l.IsEnabled
+                                && (l.ActiveFromUtc == null || l.ActiveFromUtc <= now)
+                                && (l.ActiveToUtc == null || l.ActiveToUtc > now);
+                            }
+                            @if (l.DeletedAtUtc != null)
+                            {
+                                <span class="badge bg-danger">Smazáno</span>
+                            }
+                            else if (!l.IsEnabled)
+                            {
+                                <span class="badge bg-secondary">Vypnuto</span>
+                            }
+                            else if (l.ActiveFromUtc != null && now < l.ActiveFromUtc)
+                            {
+                                <span class="badge bg-info">Naplánováno</span>
+                            }
+                            else if (l.ActiveToUtc != null && now >= l.ActiveToUtc)
+                            {
+                                <span class="badge bg-warning text-dark">Po termínu</span>
+                            }
+                            else if (active)
+                            {
+                                <span class="badge bg-success">Aktivní</span>
+                            }
+                        </td>
+                        <td class="text-end">
+                            <div class="btn-group btn-group-sm" role="group" aria-label="Akce">
+                                <a asp-area="Admin" asp-page="Details" asp-route-id="@l.Id" class="btn btn-outline-secondary">Detail</a>
+                                <a asp-area="Admin" asp-page="Edit" asp-route-id="@l.Id" class="btn btn-outline-secondary">Edit</a>
+                                <a asp-area="Admin" asp-page="Delete" asp-route-id="@l.Id" class="btn btn-outline-danger">Smazat</a>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="4">
+                    @first – @last z @Model.TotalCount
+                </td>
+                <td colspan="3">
+                    <pagination page-no="@(pageNo)"
+                                page-size="@(pageSize)"
+                                total-count="@Model.TotalCount"
+                                page="./Index"
+                                route-values="@(new Dictionary<string,string?> {
+                                                                { "Search", Model.Search },
+                                                                { "Owner", Model.Owner },
+                                                                { "Status", Model.Status },
+                                                                { "CreatedFrom", Model.CreatedFrom?.ToString("yyyy-MM-dd") },
+                                                                { "CreatedTo", Model.CreatedTo?.ToString("yyyy-MM-dd") },
+                                                                { "OrderBy", Model.OrderBy }
+                                                            })">
+                    </pagination>
+                </td>
+                <td class="text-end">
+                    <pagesize-selector page-size="@(pageSize)"
+                                       sizes="@(Model.PageSizeNumbers)"
+                                       page-no="@(pageNo)"
+                                       page="./Index"
+                                       route-values="@(new Dictionary<string,string?> {
+                                                                              { "Search", Model.Search },
+                                                                              { "Owner", Model.Owner },
+                                                                              { "Status", Model.Status },
+                                                                              { "CreatedFrom", Model.CreatedFrom?.ToString("yyyy-MM-dd") },
+                                                                              { "CreatedTo", Model.CreatedTo?.ToString("yyyy-MM-dd") },
+                                                                              { "OrderBy", Model.OrderBy }
+                                                                          })">
+                    </pagesize-selector>
+                </td>
+            </tr>
+        </tfoot>
+    </table>
+</div>

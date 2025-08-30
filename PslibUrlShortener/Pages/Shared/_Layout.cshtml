@@ -1,47 +1,112 @@
-﻿<!DOCTYPE html>
-<html lang="en">
+﻿@using System.Security.Claims
+@inject Microsoft.Extensions.Configuration.IConfiguration Config
+@{
+    var appName = Config["App:Name"] ?? "PslibUrlShortener";
+
+    bool HasClaim(string type, params string[] accepted) =>
+        User?.FindAll(type).Any(c => accepted.Any(a => string.Equals(c.Value, a, StringComparison.OrdinalIgnoreCase))) == true;
+
+    bool IsShortenerAdmin() => HasClaim("shortener.admin", "true", "1");
+
+    bool IsShortenerUser() => IsShortenerAdmin() || HasClaim("shortener.user", "true", "1");
+}
+<!DOCTYPE html>
+<html lang="cs">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - PslibUrlShortener</title>
+    <title>@(ViewData["Title"] is string t && !string.IsNullOrWhiteSpace(t) ? $"{t} – {appName}" : appName)</title>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/PslibUrlShortener.styles.css" asp-append-version="true" />
 </head>
-<body>
+<body class="d-flex flex-column min-vh-100">
     <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
+        <nav class="navbar navbar-expand-sm navbar-light bg-white border-bottom box-shadow mb-3">
             <div class="container">
-                <a class="navbar-brand" asp-area="" asp-page="/Index">PslibUrlShortener</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
-                        aria-expanded="false" aria-label="Toggle navigation">
+                <a class="navbar-brand" asp-area="" asp-page="/Index">@appName</a>
+
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#navMain" aria-controls="navMain"
+                        aria-expanded="false" aria-label="Přepnout navigaci">
                     <span class="navbar-toggler-icon"></span>
                 </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <ul class="navbar-nav flex-grow-1">
+
+                <div class="collapse navbar-collapse justify-content-between" id="navMain">
+                    <ul class="navbar-nav me-auto mb-2 mb-sm-0">
                         <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-page="/Index">Home</a>
+                            <a class="nav-link" asp-area="" asp-page="/Index">Home</a>
                         </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="Links" asp-page="/Index">My links</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="Admin" asp-page="/Index">Administration</a>
-                        </li>
+
+                        @if (User?.Identity?.IsAuthenticated == true && IsShortenerUser())
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link" asp-area="Links" asp-page="/Index">My links</a>
+                            </li>
+                        }
+
+                        @if (User?.Identity?.IsAuthenticated == true && IsShortenerAdmin())
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link" asp-area="Admin" asp-page="/Index">Administration</a>
+                            </li>
+                        }
                     </ul>
+
+                    <div class="d-flex align-items-center gap-2">
+                        @if (User?.Identity?.IsAuthenticated == true)
+                        {
+                            <span class="navbar-text me-1">
+                                @(
+                                                            User.FindFirst("name")?.Value
+                                                            ?? User.FindFirst(ClaimTypes.Name)?.Value
+                                                            ?? User.FindFirst("email")?.Value
+                                                            ?? "Uživatel"
+                                                            )
+                        </span>
+
+                            <form method="post" action="/sign-out" class="d-inline">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="btn btn-outline-secondary btn-sm">Odhlásit</button>
+                            </form>
+                                                }
+                        else
+                        {
+                            <a class="btn btn-primary btn-sm" href="/sign-in">Přihlásit</a>
+                        }
+                    </div>
                 </div>
             </div>
         </nav>
     </header>
+
+    <partial name="_Messages" />
+
     <div class="container">
-        <main role="main" class="pb-3">
+        <main role="main" class="pb-3 flex-grow-1">
             @RenderBody()
         </main>
     </div>
 
-    <footer class="border-top footer text-muted">
-        <div class="container">
-            &copy; 2025 - PslibUrlShortener - <a asp-area="" asp-page="/Privacy">Privacy</a>
+    <footer class="mt-auto border-top text-muted">
+        <div class="container py-3">
+            <div class="row align-items-center gy-2">
+                <!-- levý sloupec: název aplikace -->
+                <div class="col-12 col-md-4">
+                    <span class="fw-semibold">@appName</span>
+                </div>
+
+                <!-- prostřední sloupec: zatím prázdné místo -->
+                <div class="col-12 col-md-4 text-center">
+                    <!-- záměrně prázdné -->
+                </div>
+
+                <!-- pravý sloupec: logo školy -->
+                <div class="col-12 col-md-4 text-md-end">
+                    <a href="https://www.pslib.cz" target="_blank" rel="noopener">
+                        <img src="~/brand/logo_2023.svg" alt="Logo školy" class="img-fluid" style="max-height:24px;">
+                    </a>
+                </div>
+            </div>
         </div>
     </footer>
 

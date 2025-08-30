@@ -1,3 +1,4 @@
+﻿using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
@@ -17,37 +18,32 @@ Log.Information("Starting up");
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Host.UseSerilog((ctx, lc) => lc
-        .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level}] {SourceContext}{NewLine}{Message:lj}{NewLine}{Exception}{NewLine}", formatProvider: CultureInfo.InvariantCulture)
-        .Enrich.FromLogContext()
-        .WriteTo.File("Logs/shortener.log", rollingInterval: RollingInterval.Day, retainedFileCountLimit: 32, outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss} [{Level:u3}] {SourceContext}{NewLine}{Message:lj}{NewLine}{Exception}{NewLine}", formatProvider: CultureInfo.InvariantCulture)
-        .Enrich.FromLogContext()
-        .ReadFrom.Configuration(ctx.Configuration));
+    .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level}] {SourceContext}{NewLine}{Message:lj}{NewLine}{Exception}{NewLine}", formatProvider: CultureInfo.InvariantCulture)
+    .Enrich.FromLogContext()
+    .WriteTo.File("Logs/shortener.log", rollingInterval: RollingInterval.Day, retainedFileCountLimit: 32,
+                  outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss} [{Level:u3}] {SourceContext}{NewLine}{Message:lj}{NewLine}{Exception}{NewLine}",
+                  formatProvider: CultureInfo.InvariantCulture)
+    .Enrich.FromLogContext()
+    .ReadFrom.Configuration(ctx.Configuration));
 
 var config = builder.Configuration;
 
-var connectionStringName = "DefaultConnection";
-var connectionString = config.GetConnectionString(connectionStringName);
-var migrationsAssembly = typeof(Program).Assembly.GetName().Name;
+//builder.Services.AddRouting(o => o.LowercaseUrls = true);
+
 builder.Services.AddDbContext<ApplicationDbContext>(o =>
-                o.UseSqlServer(connectionString));
+    o.UseSqlServer(config.GetConnectionString("DefaultConnection")));
 
-// Add services to the container.
-builder.Services.AddRazorPages(options =>
-{
-    options.Conventions.AuthorizeAreaFolder("Links", "/", "IsUser");
-    options.Conventions.AuthorizeAreaFolder("Admin", "/", "IsAdmin");
-});
+//builder.Services.AddAntiforgery(o => o.HeaderName = "X-CSRF-TOKEN");
+builder.Services.AddHttpContextAccessor();
 
+// Politiky
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy(PslibUrlShortener.Constants.Identity.Policy.IsUser,
-        p => p.RequireClaim("shortener.user", "true"));
-
-    options.AddPolicy(PslibUrlShortener.Constants.Identity.Policy.IsAdmin,
-        p => p.RequireClaim("shortener.admin", "true"));
+    options.AddPolicy(PslibUrlShortener.Constants.Identity.Policy.IsUser, p => p.RequireClaim("shortener.user", "true", "1"));
+    options.AddPolicy(PslibUrlShortener.Constants.Identity.Policy.IsAdmin, p => p.RequireClaim("shortener.admin", "true", "1"));
 });
 
-// po AddRazorPages()
+// AuthN: Cookies + OIDC
 builder.Services
     .AddAuthentication(options =>
     {
@@ -58,6 +54,9 @@ builder.Services
     {
         options.SlidingExpiration = true;
         options.ExpireTimeSpan = TimeSpan.FromHours(8);
+        options.AccessDeniedPath = "/forbidden";
+        options.LoginPath = "/sign-in";
+        options.ReturnUrlParameter = "returnUrl";
     })
     .AddOpenIdConnect(options =>
     {
@@ -75,19 +74,50 @@ builder.Services
         {
             options.Scope.Add(s);
         }
+
+        // vlastní claimy z IdP
         options.ClaimActions.MapUniqueJsonKey("shortener.user", "shortener.user");
         options.ClaimActions.MapUniqueJsonKey("shortener.admin", "shortener.admin");
+
+        // vlastní chování při chybě přihlášení
+        options.Events = new OpenIdConnectEvents
+        {
+            OnRemoteFailure = ctx =>
+            {
+                var reason = Uri.EscapeDataString(ctx.Failure?.Message ?? "access_denied");
+                ctx.Response.Redirect($"/signin-error?error={reason}");
+                ctx.HandleResponse();
+                return Task.CompletedTask;
+            }
+        };
     });
+
+// Razor Pages + konvence
+builder.Services.AddRazorPages(options =>
+{
+    options.Conventions.AuthorizeAreaFolder("Links", "/", PslibUrlShortener.Constants.Identity.Policy.IsUser);
+    options.Conventions.AuthorizeAreaFolder("Admin", "/", PslibUrlShortener.Constants.Identity.Policy.IsAdmin);    
+    options.Conventions.AllowAnonymousToPage("/Index");
+    options.Conventions.AllowAnonymousToPage("/Error");
+    options.Conventions.AllowAnonymousToPage("/SigninError");
+    options.Conventions.AllowAnonymousToPage("/Forbidden");
+    options.Conventions.AllowAnonymousToPage("/Privacy");
+});
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+// Pipeline
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");
-    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
+/*
+app.UseWhen(ctx => !ctx.Request.Path.Equals("/forbidden", StringComparison.OrdinalIgnoreCase), branch =>
+{
+    branch.UseStatusCodePagesWithReExecute("/Error/{0}");
+});
+*/
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
@@ -96,43 +126,79 @@ app.UseRouting();
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.Use(async (context, next) =>
+{
+    var claims = context.User.Claims
+        .Select(c => $"{c.Type}: {c.Value}")
+        .ToArray();
+
+    // Dočasně vypiš do logu nebo do response headeru (POZOR - v produkci nikdy neklaimovat do headeru)
+    Console.WriteLine("---- ALL CLAIMS ----");
+    foreach (var claim in claims)
+        Console.WriteLine(claim);
+
+    // Nebo: context.Response.Headers.Add("X-Claims", string.Join(";", claims));
+    await next();
+});
+app.Use(async (context, next) =>
+{
+    foreach (var identity in context.User.Identities)
+    {
+        Console.WriteLine($"Identity: {identity.AuthenticationType}, Authenticated: {identity.IsAuthenticated}");
+        foreach (var claim in identity.Claims)
+        {
+            Console.WriteLine($"  {claim.Type}: {claim.Value}");
+        }
+    }
+    await next();
+});
+
+if (app.Environment.IsDevelopment())
+{
+    // Diagnostika / pomocné endpointy
+    app.MapGet("/_me", (ClaimsPrincipal user) =>
+    {
+        var who = user.Identity?.IsAuthenticated == true ? user.Identity?.Name ?? "(no name)" : "Anonymous";
+        var claims = user.Claims.Select(c => new { c.Type, c.Value });
+        return Results.Json(new { who, claims });
+    });
+
+    app.MapGet("/_endpoints", (EndpointDataSource es) =>
+    {
+        var list = es.Endpoints.Select(e => e.DisplayName).OrderBy(x => x).ToList();
+        return Results.Json(list);
+    });
+
+    app.MapGet("/_routes", (EndpointDataSource es) =>
+    {
+        var lines = es.Endpoints
+            .OfType<RouteEndpoint>()
+            .Select(e => $"{e.RoutePattern.RawText}  =>  {e.DisplayName}")
+            .OrderBy(s => s)
+            .ToList();
+        return Results.Text(string.Join("\n", lines));
+    });
+}
 
 app.MapRazorPages();
 
+// Přihlášení (GET) – po úspěchu na alias /links
 app.MapGet("/sign-in", () =>
     Results.Challenge(
-        properties: new AuthenticationProperties { RedirectUri = "/Links" },
+        properties: new AuthenticationProperties { RedirectUri = "/links" },
         authenticationSchemes: new[] { OpenIdConnectDefaults.AuthenticationScheme }
     ));
 
-app.MapPost("/sign-out", async (HttpContext ctx) =>
+// Odhlášení (POST) – s CSRF validací a povoleno jen přihlášeným
+app.MapPost("/sign-out", async (HttpContext ctx, IAntiforgery af) =>
 {
+    await af.ValidateRequestAsync(ctx);
     await ctx.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
     await ctx.SignOutAsync(
         OpenIdConnectDefaults.AuthenticationScheme,
         new AuthenticationProperties { RedirectUri = "/" }
     );
-});
-
-app.MapGet("/me", (ClaimsPrincipal user) =>
-{
-    var who = user.Identity?.IsAuthenticated == true ? user.Identity?.Name ?? "(no name)" : "Anonymous";
-    var claims = user.Claims.Select(c => new { c.Type, c.Value });
-    return Results.Json(new { who, claims });
-});
-app.MapGet("/_endpoints", (EndpointDataSource es) =>
-{
-    var list = es.Endpoints.Select(e => e.DisplayName).OrderBy(x => x).ToList();
-    return Results.Json(list);
-});
-app.MapGet("/_routes", (EndpointDataSource es) =>
-{
-    var lines = es.Endpoints
-        .OfType<RouteEndpoint>()
-        .Select(e => $"{e.RoutePattern.RawText}  =>  {e.DisplayName}")
-        .OrderBy(s => s)
-        .ToList();
-    return Results.Text(string.Join("\n", lines));
-});
+    return Results.Empty;
+}).RequireAuthorization();
 
 app.Run();

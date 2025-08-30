@@ -1,0 +1,28 @@
+﻿@page "/signin-error"
+@using Microsoft.AspNetCore.Http
+@inject IHttpContextAccessor HttpContextAccessor
+@{
+    ViewData["Title"] = "Chyba při přihlášení";
+    var err = HttpContextAccessor.HttpContext?.Request.Query["error"].ToString();
+}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="alert alert-danger d-flex align-items-start" role="alert">
+                <div class="me-3 fs-3">🔒</div>
+                <div>
+                    <h1 class="h4 mb-2">Přihlášení se nezdařilo</h1>
+                    <p class="mb-2">Autentizační služba vrátila chybu.</p>
+                    @if (!string.IsNullOrWhiteSpace(err))
+                    {
+                        <div class="small text-muted">Detail: <code>@err</code></div>
+                    }
+                    <div class="mt-3 d-flex gap-2">
+                        <a class="btn btn-primary" href="/sign-in">Zkusit znovu</a>
+                        <a class="btn btn-outline-secondary" href="/">Domů</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

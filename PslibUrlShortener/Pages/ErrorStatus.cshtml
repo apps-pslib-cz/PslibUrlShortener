@@ -1,0 +1,46 @@
+﻿@page "/Error/{code:int}"
+@{
+    var code = int.Parse((string)RouteData.Values["code"]!);
+    string title = code switch
+    {
+        404 => "Stránka nenalezena",
+        403 => "Přístup zamítnut",
+        400 => "Neplatný požadavek",
+        _ => $"Chyba {code}"
+    };
+    ViewData["Title"] = title;
+}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h1 class="h4 mb-3">@title</h1>
+
+                    @switch (code)
+                    {
+                        case 404:
+                            <p class="mb-2">Hledaná stránka neexistuje, byla přesunuta nebo je dočasně nedostupná.</p>
+                            <ul class="mb-3">
+                                <li>Zkontrolujte překlepy v adrese.</li>
+                                <li>Vraťte se na přehled a zkuste to znovu.</li>
+                            </ul>
+                            break;
+                        case 403:
+                            <p class="mb-3">K této stránce nemáte přístup. Možná chybí oprávnění.</p>
+                            <a class="btn btn-outline-secondary me-2" href="/forbidden">Více informací</a>
+                            break;
+                        default:
+                            <p class="mb-3">Server vrátil stavový kód <strong>@code</strong>.</p>
+                            break;
+                    }
+
+                    <div class="mt-2 d-flex gap-2">
+                        <a class="btn btn-primary" href="/">Domů</a>
+                        <a class="btn btn-outline-secondary" href="javascript:history.back()">Zpět</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

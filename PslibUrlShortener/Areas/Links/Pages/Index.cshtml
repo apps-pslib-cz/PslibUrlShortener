@@ -1,0 +1,184 @@
+﻿@page
+@model PslibUrlShortener.Areas.Links.Pages.IndexModel
+@{
+    ViewData["Title"] = "Moje odkazy";
+
+    var pageNo = Model.PageNo ?? 1;
+    var pageSize = Model.PageSize ?? 20;
+    var first = (Model.TotalCount == 0) ? 0 : (pageNo - 1) * pageSize + 1;
+    var last = Math.Min(pageNo * pageSize, Model.TotalCount);
+
+    var breadcrumbs = new List<(string, string?)> {
+        ("Odkazy", null)
+    };
+}
+<partial name="/Pages/Shared/_Breadcrumbs.cshtml" model="breadcrumbs" />
+
+<h1>@ViewData["Title"]</h1>
+
+<div class="d-flex flex-wrap align-items-end justify-content-between gap-2 mb-3">
+    <div class="btn-group">
+        <a asp-area="Links" asp-page="Create" class="btn btn-primary">Nový odkaz</a>
+    </div>
+
+    <form method="get" class="d-flex gap-2 align-items-end">
+        <div>
+            <label for="Search" class="form-label">Hledat</label>
+            <input id="Search" type="text" name="Search" value="@Model.Search" class="form-control" placeholder="kód, URL nebo titulek…" />
+        </div>
+
+        <input type="hidden" name="PageSize" value="@pageSize" />
+        <input type="hidden" name="OrderBy" value="@Model.OrderBy" />
+        <button type="submit" class="btn btn-primary">Filtrovat</button>
+        <a asp-page="./Index"
+           asp-route-PageSize="@pageSize"
+           asp-route-OrderBy="@Model.OrderBy"
+           class="btn btn-secondary">Reset</a>
+    </form>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-striped align-middle">
+        <thead>
+            <tr>
+                <th>
+                    <a asp-page="./Index"
+                       asp-route-Search="@Model.Search"
+                       asp-route-PageSize="@pageSize"
+                       asp-route-OrderBy="@(Model.OrderBy == "CodeAsc" ? "CodeDesc" : "CodeAsc")">
+                        Kód
+                        @if (Model.OrderBy == "CodeAsc")
+                        {
+                            <span aria-hidden="true">↑</span>
+                        }
+                        else if (Model.OrderBy == "CodeDesc")
+                        {
+
+                            <span aria-hidden="true">↓</span>
+                        }
+                    </a>
+                </th>
+                <th>Krátká adresa</th>
+                <th>Cílová URL</th>
+                <th>
+                    <a asp-page="./Index"
+                       asp-route-Search="@Model.Search"
+                       asp-route-PageSize="@pageSize"
+                       asp-route-OrderBy="@(Model.OrderBy == "CreatedAsc" ? "CreatedDesc" : "CreatedAsc")">
+                        Vytvořeno
+                        @if (Model.OrderBy == "CreatedAsc")
+                        {
+                            <span aria-hidden="true">↑</span>
+                        }
+                        else if (Model.OrderBy == "CreatedDesc")
+                        {
+
+                            <span aria-hidden="true">↓</span>
+                        }
+                    </a>
+                </th>
+                <th>
+                    <a asp-page="./Index"
+                       asp-route-Search="@Model.Search"
+                       asp-route-PageSize="@pageSize"
+                       asp-route-OrderBy="@(Model.OrderBy == "ClicksAsc" ? "ClicksDesc" : "ClicksAsc")">
+                        Kliky
+                        @if (Model.OrderBy == "ClicksAsc")
+                        {
+                            <span aria-hidden="true">↑</span>
+                        }
+                        else if (Model.OrderBy == "ClicksDesc")
+                        {
+
+                            <span aria-hidden="true">↓</span>
+                        }
+                    </a>
+                </th>
+                <th>Stav</th>
+                <th class="text-end">Akce</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (!Model.Items.Any())
+            {
+                <tr><td colspan="7" class="text-center">Žádné odkazy.</td></tr>
+            }
+            else
+            {
+                @foreach (var l in Model.Items)
+                {
+                    <tr>
+                        <td><code>@l.Code</code></td>
+                        <td>
+                            <a href="@l.ShortUrlDisplay" target="_blank" rel="noopener">@l.ShortUrlDisplay</a>
+                        </td>
+                        <td class="text-truncate" style="max-width:32rem;">
+                            <a href="@l.TargetUrl" target="_blank" rel="noopener">@l.TargetUrl</a>
+                        </td>
+                        <td>@l.CreatedAt.ToLocalTime()</td>
+                        <td>@l.Clicks</td>
+                        <td>
+                            @{
+                                var now = DateTime.UtcNow;
+                                var active = l.IsEnabled
+                                && (l.ActiveFromUtc == null || l.ActiveFromUtc <= now)
+                                && (l.ActiveToUtc == null || l.ActiveToUtc > now);
+                            }
+                            @if (!l.IsEnabled)
+                            {
+                                <span class="badge bg-secondary">Vypnuto</span>
+                            }
+                            else if (l.ActiveFromUtc != null && now < l.ActiveFromUtc)
+                            {
+                                <span class="badge bg-info">Naplánováno</span>
+                            }
+                            else if (l.ActiveToUtc != null && now >= l.ActiveToUtc)
+                            {
+                                <span class="badge bg-warning text-dark">Po termínu</span>
+                            }
+                            else if (active)
+                            {
+                                <span class="badge bg-success">Aktivní</span>
+                            }
+                        </td>
+                        <td class="text-end">
+                            <div class="btn-group btn-group-sm">
+                                <a asp-area="Links" asp-page="Edit" asp-route-id="@l.Id" class="btn btn-outline-secondary">Edit</a>
+                                <a asp-area="Links" asp-page="Delete" asp-route-id="@l.Id" class="btn btn-outline-danger">Smazat</a>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="3">
+                    @first – @last z @Model.TotalCount
+                </td>
+                <td colspan="3">
+                    <pagination page-no="@(pageNo)"
+                                page-size="@(pageSize)"
+                                total-count="@Model.TotalCount"
+                                page="./Index"
+                                route-values="@(new Dictionary<string,string?> {
+                                                                { "Search", Model.Search },
+                                                                { "OrderBy", Model.OrderBy }
+                                                            })">
+                    </pagination>
+                </td>
+                <td class="text-end">
+                    <pagesize-selector page-size="@(pageSize)"
+                                       sizes="@(Model.PageSizeNumbers)"
+                                       page-no="@(pageNo)"
+                                       page="./Index"
+                                       route-values="@(new Dictionary<string,string?> {
+                                                                              { "Search", Model.Search },
+                                                                              { "OrderBy", Model.OrderBy }
+                                                                          })">
+                    </pagesize-selector>
+                </td>
+            </tr>
+        </tfoot>
+    </table>
+</div>

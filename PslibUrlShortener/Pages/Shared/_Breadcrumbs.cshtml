@@ -1,0 +1,19 @@
+﻿@model List<(string Text, string? Url)>
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb mb-3">
+        @foreach (var item in Model)
+        {
+            if (!string.IsNullOrEmpty(item.Url))
+            {
+                <li class="breadcrumb-item">
+                    <a href="@item.Url">@item.Text</a>
+                </li>
+            }
+            else
+            {
+                <li class="breadcrumb-item active" aria-current="page">@item.Text</li>
+            }
+        }
+    </ol>
+</nav>

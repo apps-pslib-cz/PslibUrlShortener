@@ -17,11 +17,10 @@
 
 <h1 class="mb-3">@ViewData["Title"]</h1>
 
-<div>
-    <a asp-area="Admin" asp-page="Create" class="btn btn-primary">Nový odkaz</a>
-</div>
-
 <div class="d-flex flex-wrap align-items-end justify-content-between gap-2 mb-3">
+    <div class="btn-group">
+        <a asp-area="Admin" asp-page="Create" class="btn btn-primary">Nový odkaz</a>
+    </div>
     <form method="get" class="row g-2 align-items-end">
         <div class="col-12 col-md-3">
             <label for="Search" class="form-label">Hledat</label>
@@ -66,22 +65,6 @@
                class="btn btn-secondary">Reset</a>
         </div>
     </form>
-
-    <div>
-        <pagesize-selector page-size="@(pageSize)"
-                           sizes="@(Model.PageSizeNumbers)"
-                           page-no="@(pageNo)"
-                           page="./Index"
-                           route-values="@(new Dictionary<string,string?> {
-                                                          { "Search", Model.Search },
-                                                          { "Owner", Model.Owner },
-                                                          { "Status", Model.Status },
-                                                          { "CreatedFrom", Model.CreatedFrom?.ToString("yyyy-MM-dd") },
-                                                          { "CreatedTo", Model.CreatedTo?.ToString("yyyy-MM-dd") },
-                                                          { "OrderBy", Model.OrderBy }
-                                                      })">
-        </pagesize-selector>
-    </div>
 </div>
 
 <div class="table-responsive">

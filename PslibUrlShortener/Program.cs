@@ -64,7 +64,7 @@ builder.Services
         options.ClientId = config["Authority:ClientId"];
         options.ClientSecret = config["Authority:ClientSecret"];
         options.ResponseType = OpenIdConnectResponseType.Code;
-
+        
         options.SaveTokens = true;
         options.GetClaimsFromUserInfoEndpoint = true;
 
@@ -124,8 +124,9 @@ app.UseStaticFiles();
 
 app.UseRouting();
 
-app.UseAuthentication();
+//app.UseAuthentication();
 app.UseAuthorization();
+/*
 app.Use(async (context, next) =>
 {
     var claims = context.User.Claims
@@ -152,7 +153,7 @@ app.Use(async (context, next) =>
     }
     await next();
 });
-
+*/
 if (app.Environment.IsDevelopment())
 {
     // Diagnostika / pomocné endpointy
@@ -200,5 +201,4 @@ app.MapPost("/sign-out", async (HttpContext ctx, IAntiforgery af) =>
     );
     return Results.Empty;
 }).RequireAuthorization();
-
 app.Run();

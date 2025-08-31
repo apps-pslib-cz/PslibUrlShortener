@@ -1,0 +1,87 @@
+﻿@page "{id:int}"
+@model PslibUrlShortener.Areas.Admin.Pages.Links.DeleteModel
+@{
+    ViewData["Title"] = "Smazat odkaz";
+    var breadcrumbs = new List<(string, string?)> {
+        ("Administrace", Url.Page("../Index")),
+        ("Odkazy", Url.Page("./Index")),
+        ("Smazat", null)
+    };
+}
+<partial name="/Pages/Shared/_Breadcrumbs.cshtml" model="breadcrumbs" />
+
+<h1 class="mb-4">@ViewData["Title"]</h1>
+
+<div class="alert alert-warning d-flex align-items-start" role="alert">
+    <i class="bi bi-exclamation-octagon fs-4 me-2"></i>
+    <div>
+        <strong>Opravdu smazat tento odkaz?</strong><br />
+        Tato akce je nevratná. (Zvažte místo toho „soft delete“ – viz níže.)
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-3">Vlastník</dt>
+            <dd class="col-sm-9">@Model.OwnerDisplay</dd>
+
+            <dt class="col-sm-3">Krátká adresa</dt>
+            <dd class="col-sm-9">
+                <a href="@Model.ShortUrlPreview" target="_blank" rel="noopener">@Model.ShortUrlPreview</a>
+            </dd>
+
+            <dt class="col-sm-3">Doména</dt>
+            <dd class="col-sm-9">@(!string.IsNullOrWhiteSpace(Model.Input.Domain) ? Model.Input.Domain : "(výchozí)")</dd>
+
+            <dt class="col-sm-3">Krátký kód</dt>
+            <dd class="col-sm-9">@Model.Input.Code</dd>
+
+            <dt class="col-sm-3">Cílová URL</dt>
+            <dd class="col-sm-9"><a href="@Model.Input.TargetUrl" target="_blank" rel="noopener">@Model.Input.TargetUrl</a></dd>
+
+            <dt class="col-sm-3">Titulek</dt>
+            <dd class="col-sm-9">@Model.Input.Title</dd>
+
+            <dt class="col-sm-3">Poznámka</dt>
+            <dd class="col-sm-9">@Model.Input.Note</dd>
+
+            <dt class="col-sm-3">Vytvořeno</dt>
+            <dd class="col-sm-9">@Model.Input.CreatedAt.ToString("g")</dd>
+
+            <dt class="col-sm-3">Aktivní</dt>
+            <dd class="col-sm-9">
+                @((Model.Input.IsEnabled ? "Ano" : "Ne"))
+                @if (Model.Input.ActiveFromUtc.HasValue || Model.Input.ActiveToUtc.HasValue)
+                {
+                    <span class="text-muted ms-2">
+                        (@(Model.Input.ActiveFromUtc?.ToString("g") ?? "—") – @(Model.Input.ActiveToUtc?.ToString("g") ?? "—") UTC)
+                    </span>
+                }
+            </dd>
+
+            <dt class="col-sm-3">Počet kliknutí</dt>
+            <dd class="col-sm-9">@Model.Input.Clicks</dd>
+
+            @if (Model.Input.DeletedAt.HasValue)
+            {
+                <dt class="col-sm-3">Smazáno</dt>
+                <dd class="col-sm-9">@Model.Input.DeletedAt.Value.ToString("g")</dd>
+            }
+        </dl>
+    </div>
+</div>
+
+<form method="post">
+    <input type="hidden" asp-for="Input.Id" />
+    <input type="hidden" asp-for="Input.RowVersion" />
+
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-danger">
+            <i class="bi bi-trash"></i> Trvale smazat
+        </button>
+        <a asp-area="Admin" asp-page="Index" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Zpět
+        </a>
+    </div>
+</form>

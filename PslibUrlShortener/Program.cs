@@ -39,6 +39,7 @@ builder.Services.AddAntiforgery(o => o.HeaderName = "X-CSRF-TOKEN");
 builder.Services.Configure<ListingOptions>(config.GetSection("Listing"));
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<LinkManager>();
+builder.Services.AddScoped<OwnerManager>();
 
 // Politiky
 builder.Services.AddAuthorization(options =>
@@ -82,6 +83,11 @@ builder.Services
         // vlastní claimy z IdP
         options.ClaimActions.MapUniqueJsonKey("shortener.user", "shortener.user");
         options.ClaimActions.MapUniqueJsonKey("shortener.admin", "shortener.admin");
+
+        options.ClaimActions.MapUniqueJsonKey(ClaimTypes.NameIdentifier, "sub");
+        options.ClaimActions.MapUniqueJsonKey(ClaimTypes.Name, "name");
+        options.ClaimActions.MapUniqueJsonKey(ClaimTypes.Email, "email");
+
 
         // vlastní chování při chybě přihlášení
         options.Events = new OpenIdConnectEvents
@@ -128,7 +134,46 @@ app.UseStaticFiles();
 
 app.UseRouting();
 
-//app.UseAuthentication();
+// Redirect endpoint: zachytí /{code} (pouze alfanum + - _ , do 64 znaků)
+// Pozor na pořadí: tento endpoint dávejte až ZA vaše admin/links routy, ať je nepřekrývá.
+app.MapGet("/{code:regex(^[a-zA-Z0-9_-]{{1,64}}$)}", async (HttpContext ctx, string code, LinkManager linkMgr) =>
+{
+    var now = DateTime.UtcNow;
+    var link = await linkMgr.ResolveForRedirectAsync(ctx.Request.Scheme, ctx.Request.Host.Host, code, now);
+
+    if (link is null)
+    {
+        // Můžete vrátit 404, nebo 410 pro soft-deleted. Tady volíme "safe" 404.
+        return Results.NotFound();
+    }
+
+    // Log hit + bump counters
+    var referer = ctx.Request.Headers.Referer.ToString();
+    var userAgent = ctx.Request.Headers.UserAgent.ToString();
+    var remoteIp = ctx.Connection.RemoteIpAddress?.ToString();
+    var isBot = LinkManager.LooksLikeBot(userAgent);
+
+    await linkMgr.RegisterHitAndTouchAsync(link.Id, referer, userAgent, remoteIp, isBot, now);
+
+    // Zachovejme query string, ať lze přenést parametry (volitelně)
+    var target = AppendQuery(link.TargetUrl, ctx.Request.QueryString.Value);
+
+    // 302 Found – běžné pro shortenery; 307 by zachoval metodu, ale pro GET je to jedno
+    return Results.Redirect(target, permanent: false);
+});
+
+// pomocník: přidá query z aktuálního požadavku k cílové URL (pokud chcete vypnout, prostě nepoužívejte)
+static string AppendQuery(string targetUrl, string? incomingQuery)
+{
+    if (string.IsNullOrEmpty(incomingQuery) || incomingQuery == "?") return targetUrl;
+    // pokud target už má query, spojíme & ; jinak nahradíme ?
+    return targetUrl.Contains('?')
+        ? $"{targetUrl}&{incomingQuery.TrimStart('?')}"
+        : $"{targetUrl}{incomingQuery}";
+}
+
+
+app.UseAuthentication();
 app.UseAuthorization();
 /*
 app.Use(async (context, next) =>
@@ -184,6 +229,24 @@ if (app.Environment.IsDevelopment())
         return Results.Text(string.Join("\n", lines));
     });
 }
+app.Use(async (ctx, next) =>
+{
+    if (ctx.User?.Identity?.IsAuthenticated == true)
+    {
+        using var scope = ctx.RequestServices.CreateScope();
+        var om = scope.ServiceProvider.GetRequiredService<OwnerManager>();
+        try { await om.EnsureOwnerAsync(ctx.User, ctx.RequestAborted); }
+        catch (Exception ex)
+        {
+            // nechceme brzdit appku, jen zalogovat
+            var log = scope.ServiceProvider.GetRequiredService<ILoggerFactory>()
+                                           .CreateLogger("OwnerEnsure");
+            log.LogError(ex, "Nepodařilo se zajistit Owner z claims.");
+        }
+    }
+    await next();
+});
+
 
 app.MapRazorPages();
 

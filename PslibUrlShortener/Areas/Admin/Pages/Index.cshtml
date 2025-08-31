@@ -1,138 +1,16 @@
 ﻿@page
 @model PslibUrlShortener.Areas.Admin.Pages.IndexModel
 @{
-    ViewData["Title"] = "Správa odkazů";
-
-    var pageNo = Model.PageNo ?? 1;
-    var pageSize = Model.PageSize ?? Model.ListingOptions.DefaultPageSize;
-    var first = (Model.TotalCount == 0) ? 0 : (pageNo - 1) * pageSize + 1;
-    var last = Math.Min(pageNo * pageSize, Model.TotalCount);
-
+    ViewData["Title"] = "Administrace";
     var breadcrumbs = new List<(string, string?)> {
-        ("Administrace", null),
-        ("Odkazy", null)
+        ("Administrace", null)
     };
 }
+
 <partial name="/Pages/Shared/_Breadcrumbs.cshtml" model="breadcrumbs" />
 
-<h1 class="mb-3">@ViewData["Title"]</h1>
+<h1 class="mb-4">@ViewData["Title"]</h1>
 
 <div>
-    <div class="btn-group">
-        <a asp-area="Admin" asp-page="Create" class="btn btn-primary">Nový odkaz</a>
-    </div>
-    <div>
-        <form method="get" class="d-flex gap-2 align-items-end">
-            <div>
-                <label for="SearchName" class="form-label">Hledat</label>
-                <input id="SearchName" type="text" name="SearchName" value="@Model.Search" class="form-control" placeholder="" />
-            </div>
-
-            <input type="hidden" name="PageSize" value="@pageSize" />
-            <input type="hidden" name="OrderBy" value="@Model.OrderBy" />
-            <button type="submit" class="btn btn-primary">Filtrovat</button>
-            <a asp-page="./Index"
-               asp-route-PageSize="@pageSize"
-               asp-route-OrderBy="@Model.OrderBy"
-               class="btn btn-secondary">Reset</a>
-        </form>
-    </div>
-    
-    <div class="table-responsive">
-        <table class="table table-striped">
-            <thead>
-                <tr>
-                    <th aria-sort="@(Model.OrderBy == "CodeDesc" ? "descending" : (Model.OrderBy == "CodeAsc" ? "ascending" : "none"))">
-                        <a asp-page="./Index"
-                           asp-route-SearchName="@Model.Search"
-                           asp-route-PageSize="@pageSize"
-                           asp-route-OrderBy="@(Model.OrderBy == "NameAsc" ? "NameDesc" : "NameAsc")">
-                            Krátký kód
-                            @if (Model.OrderBy == "CodeAsc")
-                            {
-                                <span aria-hidden="true">↑</span>
-                            }
-                            else if (Model.OrderBy == "CodeDesc")
-                            {
-                                <span aria-hidden="true">↓</span>
-                            }
-                        </a>
-                    </th>
-                    <th>Odkaz</th>
-                    <th aria-sort="@(Model.OrderBy == "CreatedAtDesc" ? "descending" : (Model.OrderBy == "CreatedAtAsc" ? "ascending" : "none"))">
-                        <a asp-page="./Index"
-                           asp-route-SearchName="@Model.Search"
-                           asp-route-PageSize="@pageSize"
-                           asp-route-OrderBy="@(Model.OrderBy == "CreatedAtAsc" ? "CreatedAtDesc" : "CreatedAtAsc")">
-                            Vytvořeno
-                            @if (Model.OrderBy == "CreatedAtAsc")
-                            {
-                                <span aria-hidden="true">↑</span>
-                            }
-                            else if (Model.OrderBy == "CreatedAtDesc")
-                            {
-                                <span aria-hidden="true">↓</span>
-                            }
-                        </a>
-                    </th>
-                    <th>Akce</th>
-                </tr>
-            </thead>
-            <tbody>
-            @if (!Model.Items.Any())
-            {
-                <tr><td colspan="4" class="text-center">Žádná položka k zobrazení.</td></tr>
-            }
-            else
-            {
-                @foreach (var client in Model.Items)
-                {
-                    <tr>
-                        <td>@client.Code</td>
-                        <td>
-                            <a href="@client.TargetUrl" target="_blank" rel="noopener">@client.TargetUrl</a>
-                        </td>
-                        <td>@client.CreatedAt.ToString("g")</td>
-                        <td>
-                            <div class="btn-group">
-                                <a asp-area="Admin" asp-page="Details" asp-route-id="@client.Id" class="btn btn-sm btn-primary">Podrobnosti</a>
-                                <a asp-area="Admin" asp-page="Edit" asp-route-id="@client.Id" class="btn btn-sm btn-secondary">Upravit</a>
-                                <a asp-area="Admin" asp-page="Delete" asp-route-id="@client.Id" class="btn btn-sm btn-danger">Smazat</a>
-                            </div>
-                        </td>
-                    </tr>   
-                }
-            }
-            </tbody>
-            <tfoot>
-                <tr>
-                    <td>
-                        @first – @last z @Model.TotalCount
-                    </td>
-                    <td colspan="2" class="text-end">
-                        <pagination page-no="@(pageNo)"
-                                    page-size="@(pageSize)"
-                                    total-count="@Model.TotalCount"
-                                    page="./Index"
-                                    route-values="@(new Dictionary<string,string?> {
-                                                                                        { "SearchName", Model.Search },
-                                                                                        { "OrderBy", Model.OrderBy }
-                                                                                    })">
-                        </pagination>
-                    </td>
-                    <td class="text-end">
-                        <pagesize-selector page-size="@(pageSize)"
-                                           sizes="@(Model.PageSizeNumbers)"
-                                           page-no="@(pageNo)"
-                                           page="./Index"
-                                           route-values="@(new Dictionary<string,string?> {
-                                                                              { "SearchName", Model.Search },
-                                                                              { "OrderBy", Model.OrderBy }
-                                                                          })">
-                        </pagesize-selector>
-                    </td>
-                </tr>
-            </tfoot>
-        </table>
-     </div> 
+    <a asp-page="Links/Index">Odkazy</a>
 </div>

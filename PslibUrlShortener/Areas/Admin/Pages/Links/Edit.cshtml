@@ -1,0 +1,147 @@
+﻿@page "{id:int}"
+@model PslibUrlShortener.Areas.Admin.Pages.Links.EditModel
+@{
+    ViewData["Title"] = "Upravit odkaz";
+    var breadcrumbs = new List<(string, string?)> {
+        ("Administrace", Url.Page("../Index")),
+        ("Odkazy", Url.Page("./Index")),
+        ("Upravit", null)
+    };
+}
+<partial name="/Pages/Shared/_Breadcrumbs.cshtml" model="breadcrumbs" />
+
+<h1 class="mb-4">@ViewData["Title"]</h1>
+
+<form method="post" class="needs-validation" novalidate>
+    <input type="hidden" asp-for="Input.Id" />
+    @* RowVersion pro souběh *@
+    <input type="hidden" asp-for="Input.RowVersion" />
+
+    <div class="row g-3">
+
+        <div class="col-12 col-md-6">
+            <label class="form-label">Vlastník</label>
+            <input class="form-control" value="@(Model.OwnerDisplay ?? "(no owner)")" disabled />
+            <div class="form-text">Vlastník je odvozen z přihlášení a nelze ho měnit.</div>
+        </div>
+
+        <div class="col-12 col-md-6">
+            <label asp-for="Input.IsEnabled" class="form-label d-block"></label>
+            <div class="form-check form-switch">
+                <input asp-for="Input.IsEnabled" class="form-check-input" />
+                <label class="form-check-label" for="Input_IsEnabled">Aktivní</label>
+            </div>
+            <span asp-validation-for="Input.IsEnabled" class="text-danger"></span>
+        </div>
+
+        <div class="col-12 col-md-6">
+            <label asp-for="Input.Domain" class="form-label"></label>
+            <input asp-for="Input.Domain" class="form-control" placeholder="např. u.pslib.cz (nepovinné)" />
+            <div class="form-text">Nechte prázdné pro výchozí doménu aplikace. Lze zadat subdoménu (host) nebo i plnou URL (https://u.pslib.cz).</div>
+            <span asp-validation-for="Input.Domain" class="text-danger"></span>
+        </div>
+
+        <div class="col-12 col-md-6">
+            <label asp-for="Input.Code" class="form-label"></label>
+            <input asp-for="Input.Code" class="form-control" placeholder="nechte prázdné pro automatické vygenerování" />
+            <span asp-validation-for="Input.Code" class="text-danger"></span>
+        </div>
+
+        <div class="col-12">
+            <label asp-for="Input.TargetUrl" class="form-label"></label>
+            <input asp-for="Input.TargetUrl" class="form-control" />
+            <span asp-validation-for="Input.TargetUrl" class="text-danger"></span>
+        </div>
+
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body py-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-link-45deg fs-4"></i>
+                        <div>
+                            <div class="text-muted small">Krátká adresa</div>
+                            <div id="short-url-preview" class="fw-semibold">
+                                @Model.ShortUrlPreview
+                            </div>
+                        </div>
+                        <div class="ms-auto">
+                            <a class="btn btn-outline-secondary btn-sm" target="_blank" rel="noopener" href="@Model.ShortUrlPreview">
+                                <i class="bi bi-box-arrow-up-right"></i> Otevřít
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6">
+            <label asp-for="Input.ActiveFromUtc" class="form-label"></label>
+            <input asp-for="Input.ActiveFromUtc" type="datetime-local" class="form-control" />
+            <div class="form-text">Časy jsou v UTC.</div>
+            <span asp-validation-for="Input.ActiveFromUtc" class="text-danger"></span>
+        </div>
+
+        <div class="col-12 col-md-6">
+            <label asp-for="Input.ActiveToUtc" class="form-label"></label>
+            <input asp-for="Input.ActiveToUtc" type="datetime-local" class="form-control" />
+            <div class="form-text">Časy jsou v UTC.</div>
+            <span asp-validation-for="Input.ActiveToUtc" class="text-danger"></span>
+        </div>
+
+        <div class="col-12 col-md-6">
+            <label asp-for="Input.Title" class="form-label"></label>
+            <input asp-for="Input.Title" class="form-control" />
+            <span asp-validation-for="Input.Title" class="text-danger"></span>
+        </div>
+
+        <div class="col-12">
+            <label asp-for="Input.Note" class="form-label"></label>
+            <textarea asp-for="Input.Note" rows="3" class="form-control"></textarea>
+            <span asp-validation-for="Input.Note" class="text-danger"></span>
+        </div>
+    </div>
+
+    <div class="mt-4 d-flex gap-2">
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-save"></i> Uložit změny
+        </button>
+        <a asp-area="Admin" asp-page="Index" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Zpět
+        </a>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        (function () {
+          const domainInput = document.getElementById('Input_Domain');
+          const codeInput   = document.getElementById('Input_Code');
+          const previewEl   = document.getElementById('short-url-preview');
+          const baseUrl     = '@($"{HttpContext.Request.Scheme}://{HttpContext.Request.Host}")';
+
+          function buildPreview() {
+            const d = (domainInput?.value || '').trim();
+            const c = (codeInput?.value || '').trim() || '••••••';
+
+            if (/^https?:\/\//i.test(d)) {
+              previewEl.textContent = d.replace(/\/+$/, '') + '/' + c;
+            } else if (d) {
+              try {
+                const u = new URL(baseUrl);
+                u.hostname = d;
+                previewEl.textContent = u.origin + '/' + c;
+              } catch {
+                previewEl.textContent = baseUrl.replace(/\/+$/, '') + '/' + c;
+              }
+            } else {
+              previewEl.textContent = baseUrl.replace(/\/+$/, '') + '/' + c;
+            }
+          }
+
+          domainInput?.addEventListener('input', buildPreview);
+          codeInput?.addEventListener('input', buildPreview);
+          buildPreview();
+        })();
+    </script>
+}

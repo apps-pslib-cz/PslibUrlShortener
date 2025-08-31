@@ -1,0 +1,200 @@
+﻿@page
+@model PslibUrlShortener.Areas.Admin.Pages.Links.IndexModel
+@{
+    ViewData["Title"] = "Správa odkazů";
+
+    var pageNo = Model.PageNo ?? 1;
+    var pageSize = Model.PageSize ?? Model.ListingOptions.DefaultPageSize;
+    var first = (Model.TotalCount == 0) ? 0 : (pageNo - 1) * pageSize + 1;
+    var last = Math.Min(pageNo * pageSize, Model.TotalCount);
+
+    var breadcrumbs = new List<(string, string?)> {
+        ("Administrace", Url.Page("../Index")),
+        ("Odkazy", null)
+    };
+}
+<partial name="/Pages/Shared/_Breadcrumbs.cshtml" model="breadcrumbs" />
+
+<h1 class="mb-3">@ViewData["Title"]</h1>
+
+<div>
+    <div class="btn-group mb-3">
+        <a asp-area="Admin" asp-page="Create" class="btn btn-primary">
+            <i class="bi bi-plus-lg"></i> Nový odkaz
+        </a>
+    </div>
+    <div>
+        <form method="get" class="d-flex gap-2 align-items-end flex-wrap">
+            <div>
+                <label for="SearchName" class="form-label">Hledat</label>
+                <input id="SearchName" type="text" name="Search" value="@Model.Search" class="form-control" />
+            </div>
+            <div>
+                <label for="Domain" class="form-label">Doména</label>
+                <input id="Domain" type="text" name="Domain" value="@Model.Domain" class="form-control" placeholder="např. u.pslib.cz" />
+            </div>
+
+            <input type="hidden" name="PageSize" value="@pageSize" />
+            <input type="hidden" name="OrderBy" value="@Model.OrderBy" />
+            <button type="submit" class="btn btn-primary">Filtrovat</button>
+            <a asp-page="./Index"
+               asp-route-PageSize="@pageSize"
+               asp-route-OrderBy="@Model.OrderBy"
+               class="btn btn-secondary">Reset</a>
+        </form>
+
+    </div>
+    
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th aria-sort="@(Model.OrderBy == "DomainDesc" ? "descending" : (Model.OrderBy == "DomainAsc" ? "ascending" : "none"))">
+                        <a asp-page="./Index"
+                           asp-route-Search="@Model.Search"
+                           asp-route-Domain="@Model.Domain"
+                           asp-route-PageSize="@pageSize"
+                           asp-route-OrderBy="@(Model.OrderBy == "DomainAsc" ? "DomainDesc" : "DomainAsc")">
+                            Doména
+                            @if (Model.OrderBy == "DomainAsc")
+                            {
+                                <span aria-hidden="true">↑</span>
+                            }
+                            else if (Model.OrderBy == "DomainDesc")
+                            {
+
+                                <span aria-hidden="true">↓</span>
+                            }
+                        </a>
+                    </th>
+
+                    <th aria-sort="@(Model.OrderBy == "CodeDesc" ? "descending" : (Model.OrderBy == "CodeAsc" ? "ascending" : "none"))">
+                        <a asp-page="./Index"
+                           asp-route-Search="@Model.Search"
+                           asp-route-Domain="@Model.Domain"
+                           asp-route-PageSize="@pageSize"
+                           asp-route-OrderBy="@(Model.OrderBy == "CodeAsc" ? "CodeDesc" : "CodeAsc")">
+                            Krátký kód
+                            @if (Model.OrderBy == "CodeAsc")
+                            {
+                                <span aria-hidden="true">↑</span>
+                            }
+                            else if (Model.OrderBy == "CodeDesc")
+                            {
+
+                                <span aria-hidden="true">↓</span>
+                            }
+                        </a>
+                    </th>
+
+                    <th>Odkaz</th>
+
+                    <th aria-sort="@(Model.OrderBy == "CreatedAsc" ? "ascending" : (Model.OrderBy == "CreatedDesc" ? "descending" : "none"))">
+                        <a asp-page="./Index"
+                           asp-route-Search="@Model.Search"
+                           asp-route-Domain="@Model.Domain"
+                           asp-route-PageSize="@pageSize"
+                           asp-route-OrderBy="@(Model.OrderBy == "CreatedAsc" ? "CreatedDesc" : "CreatedAsc")">
+                            Vytvořeno
+                            @if (Model.OrderBy == "CreatedAsc")
+                            {
+                                <span aria-hidden="true">↑</span>
+                            }
+                            else if (Model.OrderBy == "CreatedDesc")
+                            {
+
+                                <span aria-hidden="true">↓</span>
+                            }
+                        </a>
+                    </th>
+                    <th>Akce</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                @if (!Model.Items.Any())
+                {
+                    <tr><td colspan="5" class="text-center">Žádná položka k zobrazení.</td></tr>
+                }
+                else
+                {
+                    @foreach (var row in Model.Items)
+                    {
+                        <tr class="@(row.DeletedAtUtc != null ? "table-secondary text-muted" : "")">
+                            <td>@(string.IsNullOrWhiteSpace(row.Domain) ? "(výchozí)" : row.Domain)</td>
+                            <td>
+                                <div class="d-flex flex-column">
+                                    <span class="fw-semibold">@row.Code</span>
+                                    <small class="text-muted"><a href="@row.ShortUrlDisplay" target="_blank" rel="noopener">@row.ShortUrlDisplay</a></small>
+                                </div>
+                            </td>
+                            <td><a href="@row.TargetUrl" target="_blank" rel="noopener">@row.TargetUrl</a></td>
+                            <td>@row.CreatedAt.ToString("g")</td>
+                            <td>
+                                <div class="btn-group">
+                                    <a asp-area="Admin" asp-page="Details" asp-route-id="@row.Id" class="btn btn-sm btn-primary">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    <a asp-area="Admin" asp-page="Edit" asp-route-id="@row.Id" class="btn btn-sm btn-secondary">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+
+                                    @if (row.DeletedAtUtc == null)
+                                    {
+                                        <form method="post" asp-page-handler="SoftDelete" asp-route-id="@row.Id" class="d-inline">
+                                            <button type="submit" class="btn btn-sm btn-warning" title="Označit jako smazané">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                    }
+                                    else
+                                    {
+                                        <form method="post" asp-page-handler="Restore" asp-route-id="@row.Id" class="d-inline">
+                                            <button type="submit" class="btn btn-sm btn-success" title="Obnovit">
+                                                <i class="bi bi-arrow-counterclockwise"></i>
+                                            </button>
+                                        </form>
+                                        <a asp-area="Admin" asp-page="Delete" asp-route-id="@row.Id" class="btn btn-sm btn-danger" title="Trvale smazat">
+                                            <i class="bi bi-x-circle"></i>
+                                        </a>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td>
+                        @first – @last z @Model.TotalCount
+                    </td>
+                    <td colspan="3" class="text-end">
+                        <pagination page-no="@(pageNo)"
+                                    page-size="@(pageSize)"
+                                    total-count="@Model.TotalCount"
+                                    page="./Index"
+                                    route-values="@(new Dictionary<string,string?> {
+                                                                                        { "SearchName", Model.Search },
+                                                                                        { "Domain", Model.Domain },
+                                                                                        { "OrderBy", Model.OrderBy }
+                                                                                    })">
+                        </pagination>
+                    </td>
+                    <td class="text-end">
+                        <pagesize-selector page-size="@(pageSize)"
+                                           sizes="@(Model.PageSizeNumbers)"
+                                           page-no="@(pageNo)"
+                                           page="./Index"
+                                           route-values="@(new Dictionary<string,string?> {
+                                                                              { "SearchName", Model.Search },
+                                                                              { "Domain", Model.Domain },
+                                                                              { "OrderBy", Model.OrderBy }
+                                                                          })">
+                        </pagesize-selector>
+                    </td>
+                </tr>
+            </tfoot>
+        </table>
+     </div> 
+</div>

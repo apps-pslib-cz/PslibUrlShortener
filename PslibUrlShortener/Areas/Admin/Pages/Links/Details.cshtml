@@ -1,0 +1,189 @@
+﻿@page "{id:int}"
+@model PslibUrlShortener.Areas.Admin.Pages.Links.DetailsModel
+@{
+    ViewData["Title"] = "Detail odkazu";
+    var breadcrumbs = new List<(string, string?)> {
+        ("Administrace", Url.Page("../Index")),
+        ("Odkazy", Url.Page("./Index")),
+        ("Detail", null)
+    };
+
+    var d = Model.Data;
+}
+<partial name="/Pages/Shared/_Breadcrumbs.cshtml" model="breadcrumbs" />
+
+<h1 class="mb-4">@ViewData["Title"]</h1>
+
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+        <div class="d-flex align-items-start gap-3 flex-wrap">
+            <div class="flex-grow-1">
+                <div class="text-muted small">Krátká adresa</div>
+                <div class="d-flex align-items-center gap-2">
+                    <a class="fw-semibold" href="@Model.ShortUrlPreview" target="_blank" rel="noopener">@Model.ShortUrlPreview</a>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="navigator.clipboard.writeText('@Model.ShortUrlPreview')">
+                        <i class="bi bi-clipboard"></i> Kopírovat
+                    </button>
+                    <a class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener" href="@Model.ShortUrlPreview">
+                        <i class="bi bi-box-arrow-up-right"></i> Otevřít
+                    </a>
+                </div>
+            </div>
+
+            <div class="ms-auto d-flex gap-2">
+                <a asp-area="Admin" asp-page="Edit" asp-route-id="@d.Id" class="btn btn-secondary">
+                    <i class="bi bi-pencil"></i> Upravit
+                </a>
+
+                @if (d.DeletedAt == null)
+                {
+                    <form method="post" asp-page-handler="SoftDelete" asp-route-id="@d.Id" class="d-inline">
+                        <button type="submit" class="btn btn-warning">
+                            <i class="bi bi-trash"></i> Označit jako smazané
+                        </button>
+                    </form>
+                }
+                else
+                {
+                    <form method="post" asp-page-handler="Restore" asp-route-id="@d.Id" class="d-inline">
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-arrow-counterclockwise"></i> Obnovit
+                        </button>
+                    </form>
+                    <a asp-area="Admin" asp-page="Delete" asp-route-id="@d.Id" class="btn btn-danger">
+                        <i class="bi bi-x-circle"></i> Trvale smazat
+                    </a>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-12 col-xl-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <h5 class="card-title mb-3">Základní informace</h5>
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Vlastník</dt>
+                    <dd class="col-sm-8">
+                        @d.OwnerDisplay
+                        @if (!string.IsNullOrWhiteSpace(d.OwnerEmail))
+                        {
+                            <span class="text-muted">(@d.OwnerEmail)</span>
+                        }
+                    </dd>
+
+                    <dt class="col-sm-4">Doména</dt>
+                    <dd class="col-sm-8">@(string.IsNullOrWhiteSpace(d.Domain) ? "(výchozí)" : d.Domain)</dd>
+
+                    <dt class="col-sm-4">Krátký kód</dt>
+                    <dd class="col-sm-8">@d.Code</dd>
+
+                    <dt class="col-sm-4">Cílová URL</dt>
+                    <dd class="col-sm-8"><a href="@d.TargetUrl" target="_blank" rel="noopener">@d.TargetUrl</a></dd>
+
+                    <dt class="col-sm-4">Titulek</dt>
+                    <dd class="col-sm-8">@d.Title</dd>
+
+                    <dt class="col-sm-4">Poznámka</dt>
+                    <dd class="col-sm-8">@d.Note</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-xl-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <h5 class="card-title mb-3">Stav a metriky</h5>
+                <dl class="row mb-0">
+                    <dt class="col-sm-5">Vytvořeno</dt>
+                    <dd class="col-sm-7">@d.CreatedAt.ToString("g")</dd>
+
+                    <dt class="col-sm-5">Aktivní</dt>
+                    <dd class="col-sm-7">@((d.IsEnabled ? "Ano" : "Ne"))</dd>
+
+                    <dt class="col-sm-5">Okno aktivity (UTC)</dt>
+                    <dd class="col-sm-7">
+                        @(d.ActiveFromUtc?.ToString("g") ?? "—") – @(d.ActiveToUtc?.ToString("g") ?? "—")
+                    </dd>
+
+                    <dt class="col-sm-5">Poslední přístup</dt>
+                    <dd class="col-sm-7">@((d.LastAccessAt.HasValue ? d.LastAccessAt.Value.ToString("g") : "—"))</dd>
+
+                    <dt class="col-sm-5">Kliknutí celkem</dt>
+                    <dd class="col-sm-7">@d.Clicks</dd>
+
+                    <dt class="col-sm-5">Smazáno</dt>
+                    <dd class="col-sm-7">@((d.DeletedAt.HasValue ? d.DeletedAt.Value.ToString("g") : "Ne"))</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm mt-4">
+    <div class="card-body">
+        <h5 class="card-title mb-3">Poslední přístupy</h5>
+
+        @if (d.HitsTotal == 0)
+        {
+            <div class="text-muted">Pro tento odkaz zatím nejsou žádné záznamy.</div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-striped align-middle">
+                    <thead>
+                        <tr>
+                            <th style="width: 180px;">Čas (UTC)</th>
+                            <th>Referer</th>
+                            <th>User-Agent</th>
+                            <th style="width: 100px;">Bot</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var h in d.Hits)
+                        {
+                            <tr>
+                                <td>@h.AtUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                                <td class="text-truncate" style="max-width: 420px;">@h.Referer</td>
+                                <td class="text-truncate" style="max-width: 420px;">@h.UserAgent</td>
+                                <td>@(h.IsBot ? "Ano" : "Ne")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <nav aria-label="Stránkování hitů" class="d-flex justify-content-between align-items-center">
+                <span class="text-muted small">
+                    Zobrazeno
+                    @{
+                        var first = ((d.HitsPage - 1) * d.HitsPageSize) + 1;
+                        var last = Math.Min(d.HitsPage * d.HitsPageSize, d.HitsTotal);
+                    }
+                    @first – @last z @d.HitsTotal
+                </span>
+
+                <ul class="pagination mb-0">
+                    <li class="page-item @(d.HitsPage <= 1 ? "disabled" : "")">
+                        <a class="page-link"
+                           asp-page="./Details"
+                           asp-route-id="@d.Id"
+                           asp-route-HitsPage="@(Math.Max(1, d.HitsPage - 1))"
+                           asp-route-HitsPageSize="@d.HitsPageSize">Předchozí</a>
+                    </li>
+                    <li class="page-item @((d.HitsPage * d.HitsPageSize >= d.HitsTotal) ? "disabled" : "")">
+                        <a class="page-link"
+                           asp-page="./Details"
+                           asp-route-id="@d.Id"
+                           asp-route-HitsPage="@(d.HitsPage + 1)"
+                           asp-route-HitsPageSize="@d.HitsPageSize">Další</a>
+                    </li>
+                </ul>
+            </nav>
+        }
+    </div>
+</div>

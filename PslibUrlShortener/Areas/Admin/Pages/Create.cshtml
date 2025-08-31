@@ -9,52 +9,82 @@
 }
 <partial name="/Pages/Shared/_Breadcrumbs.cshtml" model="breadcrumbs" />
 
-<h1>@ViewData["Title"]</h1>
+<h1 class="mb-4">@ViewData["Title"]</h1>
 
-<form method="post" class="row g-3">
-    <div class="col-12">
-        <label asp-for="TargetUrl" class="form-label">Cílová URL</label>
-        <input asp-for="TargetUrl" class="form-control" placeholder="https://example.com/cesta" />
-        <span asp-validation-for="TargetUrl" class="text-danger"></span>
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <i class="bi bi-check-circle me-2"></i>@Model.SuccessMessage
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Zavřít"></button>
     </div>
-
-    <div class="col-md-6">
-        <label asp-for="CustomCode" class="form-label">Vlastní kód (volitelné)</label>
-        <input asp-for="CustomCode" class="form-control" placeholder="nechte prázdné pro automatické vygenerování" />
-        <small class="text-muted">Povoleno: a–z, 0–9, doporučeno 6–8 znaků.</small>
-        <span asp-validation-for="CustomCode" class="text-danger"></span>
+}
+@if (!string.IsNullOrEmpty(Model.FailureMessage))
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="bi bi-exclamation-triangle me-2"></i>@Model.FailureMessage
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Zavřít"></button>
     </div>
+}
 
-    <div class="col-md-6 d-flex align-items-end">
-        <div class="form-check">
-            <input asp-for="IsEnabled" class="form-check-input" type="checkbox" id="IsEnabled" />
-            <label class="form-check-label" for="IsEnabled">Povoleno</label>
+<form method="post" class="needs-validation" novalidate>
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+    <div class="row g-3">
+        <!-- Target URL -->
+        <div class="col-12">
+            <label asp-for="Input.TargetUrl" class="form-label"></label>
+            <input asp-for="Input.TargetUrl" class="form-control" inputmode="url" placeholder="https://example.com/cilova-stranka" />
+            <span class="form-text">Zadejte plnou cílovou adresu včetně protokolu (https://).</span>
+            <span asp-validation-for="Input.TargetUrl" class="text-danger"></span>
+        </div>
+
+        <!-- Custom Short Code -->
+        <div class="col-12 col-md-6">
+            <label asp-for="Input.CustomCode" class="form-label"></label>
+            <div class="input-group">
+                <span class="input-group-text">/</span>
+                <input asp-for="Input.CustomCode" class="form-control" placeholder="volitelně: vlastní-kod" />
+            </div>
+            <span class="form-text">
+                3–20 znaků: A–Z, a–z, 0–9, podtržítko (_) a pomlčka (-). Necháte-li prázdné, vygeneruje se automaticky.
+            </span>
+            <span asp-validation-for="Input.CustomCode" class="text-danger"></span>
+        </div>
+
+        <!-- Is Enabled -->
+        <div class="col-12 col-md-6 d-flex align-items-end">
+            <div class="form-check">
+                <input asp-for="Input.IsEnabled" class="form-check-input" />
+                <label asp-for="Input.IsEnabled" class="form-check-label"></label>
+            </div>
+        </div>
+
+        <!-- Active From (UTC) -->
+        <div class="col-12 col-md-6">
+            <label asp-for="Input.ActiveFromUtc" class="form-label"></label>
+            <input asp-for="Input.ActiveFromUtc" class="form-control" type="datetime-local" asp-format="{0:yyyy-MM-ddTHH:mm}" />
+            <span class="form-text">Volitelné. Čas je v UTC.</span>
+            <span asp-validation-for="Input.ActiveFromUtc" class="text-danger"></span>
+        </div>
+
+        <!-- Active To (UTC) -->
+        <div class="col-12 col-md-6">
+            <label asp-for="Input.ActiveToUtc" class="form-label"></label>
+            <input asp-for="Input.ActiveToUtc" class="form-control" type="datetime-local" asp-format="{0:yyyy-MM-ddTHH:mm}" />
+            <span class="form-text">Volitelné. Čas je v UTC.</span>
+            <span asp-validation-for="Input.ActiveToUtc" class="text-danger"></span>
         </div>
     </div>
 
-    <div class="col-md-6">
-        <label class="form-label" for="ActiveFromLocal">Aktivní od (místní čas)</label>
-        <input class="form-control" type="datetime-local" id="ActiveFromLocal" name="ActiveFromLocal" />
-    </div>
+    <hr class="my-4" />
 
-    <div class="col-md-6">
-        <label class="form-label" for="ActiveToLocal">Aktivní do (místní čas)</label>
-        <input class="form-control" type="datetime-local" id="ActiveToLocal" name="ActiveToLocal" />
-    </div>
-
-    <div class="col-md-6">
-        <label asp-for="Title" class="form-label">Titulek (volitelné)</label>
-        <input asp-for="Title" class="form-control" />
-    </div>
-
-    <div class="col-md-6">
-        <label asp-for="Note" class="form-label">Poznámka (volitelné)</label>
-        <input asp-for="Note" class="form-control" />
-    </div>
-
-    <div class="col-12">
-        <button class="btn btn-primary">Vytvořit</button>
-        <a asp-area="Admin" asp-page="Index" class="btn btn-secondary">Zpět</a>
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-link-45deg me-1"></i> Vytvořit odkaz
+        </button>
+        <a asp-area="Admin" asp-page="Index" class="btn btn-outline-secondary">
+            Zrušit
+        </a>
     </div>
 </form>
 

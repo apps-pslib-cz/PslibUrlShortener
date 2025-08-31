@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using PslibUrlShortener.Data;
+using PslibUrlShortener.Services;
+using PslibUrlShortener.Services.Options;
 using Serilog;
 using System.Globalization;
 using System.Security.Claims;
@@ -28,13 +30,15 @@ builder.Host.UseSerilog((ctx, lc) => lc
 
 var config = builder.Configuration;
 
-//builder.Services.AddRouting(o => o.LowercaseUrls = true);
+builder.Services.AddRouting(o => o.LowercaseUrls = true);
 
 builder.Services.AddDbContext<ApplicationDbContext>(o =>
     o.UseSqlServer(config.GetConnectionString("DefaultConnection")));
 
-//builder.Services.AddAntiforgery(o => o.HeaderName = "X-CSRF-TOKEN");
+builder.Services.AddAntiforgery(o => o.HeaderName = "X-CSRF-TOKEN");
+builder.Services.Configure<ListingOptions>(config.GetSection("Listing"));
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<LinkManager>();
 
 // Politiky
 builder.Services.AddAuthorization(options =>

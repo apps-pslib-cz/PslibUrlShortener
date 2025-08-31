@@ -1,6 +1,7 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 
 namespace PslibUrlShortener.Model
@@ -25,8 +26,8 @@ namespace PslibUrlShortener.Model
         [Required, StringLength(128)]
         public required string OwnerSub { get; set; }
 
-        [StringLength(256)]
-        public string? OwnerName { get; set; }
+        [JsonIgnore]
+        public Owner Owner { get; set; } = default!;
 
         [Column(TypeName = "datetime2(0)")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -53,5 +54,8 @@ namespace PslibUrlShortener.Model
 
         [Timestamp]
         public byte[]? RowVersion { get; set; }
+
+        [JsonIgnore]
+        public ICollection<LinkHit>? Hits { get; set; }
     }
 }

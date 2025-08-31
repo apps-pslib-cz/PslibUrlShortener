@@ -1,26 +1,33 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
-using PslibUrlShortener.Data;
+using Microsoft.Extensions.Options;
 using PslibUrlShortener.Model;
+using PslibUrlShortener.Services;
+using PslibUrlShortener.Services.Options;
 
 namespace PslibUrlShortener.Areas.Admin.Pages
 {
     public class IndexModel : PageModel
     {
-        private readonly ApplicationDbContext _db;
+        private readonly LinkManager _linkManager;
         private readonly ILogger<IndexModel> _logger;
 
-        public IndexModel(ApplicationDbContext db, ILogger<IndexModel> logger)
+        public IndexModel(LinkManager linkManager, ILogger<IndexModel> logger, IOptions<ListingOptions> options)
         {
-            _db = db;
-            _logger = logger;
+            _linkManager = linkManager ?? throw new ArgumentNullException(nameof(linkManager));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            ListingOptions = options.Value ?? throw new ArgumentNullException(nameof(options));
         }
+
+        public ListingOptions ListingOptions { get; set; }
 
         // --- Query parametry ---
         [BindProperty(SupportsGet = true)] public string? Search { get; set; }
+        [BindProperty(SupportsGet = true)] public string? Short { get; set; }
+        [BindProperty(SupportsGet = true)] public string? Target { get; set; }
         [BindProperty(SupportsGet = true)] public string? Owner { get; set; }
-        [BindProperty(SupportsGet = true)] public string? Status { get; set; } = "all"; // all/enabled/disabled/active/scheduled/expired/deleted
+        [BindProperty(SupportsGet = true)] public bool? Enabled { get; set; }
         [BindProperty(SupportsGet = true)] public DateTime? CreatedFrom { get; set; }
         [BindProperty(SupportsGet = true)] public DateTime? CreatedTo { get; set; }
         [BindProperty(SupportsGet = true)] public string? OrderBy { get; set; } = "CreatedDesc";
@@ -32,6 +39,12 @@ namespace PslibUrlShortener.Areas.Admin.Pages
         public List<int> PageSizeNumbers { get; } = new() { 10, 20, 50, 100 };
         public IReadOnlyList<Row> Items { get; private set; } = Array.Empty<Row>();
 
+        // --- Status zprávy ---
+        [TempData]
+        public string? SuccessMessage { get; set; }
+
+        [TempData]
+        public string? FailureMessage { get; set; }
         public record Row(
             int Id,
             string Code,
@@ -48,113 +61,109 @@ namespace PslibUrlShortener.Areas.Admin.Pages
 
         public async Task OnGetAsync()
         {
-            var allowedSizes = PageSizeNumbers.ToHashSet();
-            var size = (PageSize.HasValue && allowedSizes.Contains(PageSize.Value)) ? PageSize.Value : 20;
-            var page = Math.Max(1, PageNo ?? 1);
-            var now = DateTime.UtcNow;
+            _logger.LogInformation("OnGet called with parameters: Search={Search}, Short={Short}, Targer={Target} OrderBy={OrderBy}, PageNo={PageNo}, PageSize={PageSize}",
+                Search, Short, Target, OrderBy, PageNo, PageSize);
 
-            // LEFT JOIN na Owners kvùli zobrazovanému jménu
-            var q = from l in _db.Links.AsNoTracking()
-                    join o in _db.Owners.AsNoTracking() on l.OwnerSub equals o.Sub into prof
-                    from o in prof.DefaultIfEmpty()
-                    select new { l, o };
-
-            // Filtr: smazané vs. nesmazané pøes Status
-            if (!string.Equals(Status, "deleted", StringComparison.OrdinalIgnoreCase))
+            try
             {
-                q = q.Where(x => x.l.DeletedAt == null);
+                var allowedSizes = ListingOptions.PageSizes.ToHashSet();
+                var pageSize = (PageSize.HasValue && allowedSizes.Contains(PageSize.Value))
+                    ? PageSize.Value
+                    : ListingOptions.DefaultPageSize;
+
+                var pageNumber = Math.Max(1, PageNo ?? 1);
+
+                IQueryable<Link> query = _linkManager.Query().AsNoTracking();
+
+                // Filtry
+                if (!string.IsNullOrWhiteSpace(Search))
+                {
+                    var s = Search.Trim().ToLowerInvariant();
+                    query = query.Where(l =>
+                        l.Code.ToLower().Contains(s) ||
+                        l.TargetUrl.ToLower().Contains(s) ||
+                        (l.Owner.DisplayName != null && l.Owner.DisplayName.ToLower().Contains(s)) ||
+                        (l.Note != null && l.Note.ToLower().Contains(s)) ||
+                        (l.Title != null && l.Title.ToLower().Contains(s))
+                    );
+                }
+                if (!string.IsNullOrWhiteSpace(Short))
+                {
+                    var s = Short.Trim().ToLowerInvariant();
+                    query = query.Where(l => l.Code.ToLower().Contains(s));
+                }
+                if (!string.IsNullOrWhiteSpace(Target))
+                {
+                    var s = Target.Trim().ToLowerInvariant();
+                    query = query.Where(l => l.TargetUrl.ToLower().Contains(s));
+                }
+                if (!string.IsNullOrWhiteSpace(Owner))
+                {
+                    var s = Owner.Trim().ToLowerInvariant();
+                    query = query.Where(l => l.Owner.DisplayName != null && l.Owner.DisplayName.ToLower().Contains(s));
+                }
+                if (Enabled.HasValue)
+                {
+                    query = query.Where(l => l.IsEnabled == Enabled.Value);
+                }
+                if (CreatedFrom.HasValue)
+                {
+                    var from = CreatedFrom.Value.Date;
+                    query = query.Where(l => l.CreatedAt >= from);
+                }
+                if (CreatedTo.HasValue)
+                {
+                    var to = CreatedTo.Value.Date.AddDays(1);
+                    query = query.Where(l => l.CreatedAt < to);
+                }
+                // Celkový poèet
+                TotalCount = await query.CountAsync();
+
+                // Øazení
+                query = OrderBy switch
+                {
+                    "CreatedAsc" => query.OrderBy(l => l.CreatedAt),
+                    "ClicksDesc" => query.OrderByDescending(l => l.Clicks).ThenByDescending(l => l.CreatedAt),
+                    "ClicksAsc" => query.OrderBy(l => l.Clicks).ThenByDescending(l => l.CreatedAt),
+                    "CodeAsc" => query.OrderBy(l => l.Code),
+                    "CodeDesc" => query.OrderByDescending(l => l.Code),
+                    "OwnerAsc" => query.OrderBy(l => l.Owner.DisplayName).ThenByDescending(l => l.CreatedAt),
+                    "OwnerDesc" => query.OrderByDescending(l => l.Owner.DisplayName).ThenByDescending(l => l.CreatedAt),
+                    "TargetAsc" => query.OrderBy(l => l.TargetUrl),
+                    "TargetDesc" => query.OrderByDescending(l => l.TargetUrl),
+                    _ => query.OrderByDescending(l => l.CreatedAt), // CreatedDesc
+                };
+
+                // Stránkování
+                PageNo = pageNumber;
+                PageSize = pageSize;
+                var skip = (pageNumber - 1) * pageSize;
+                query = query.Skip(skip).Take(pageSize);
+                var list = await query.ToListAsync();
+
+                // Projekce
+                Items = list.Select(l => new Row(
+                    l.Id,
+                    l.Code,
+                    l.TargetUrl,
+                    BuildShortUrl(l.Code),
+                    string.IsNullOrWhiteSpace(l.Owner.DisplayName) ? "(no owner)" : l.Owner.DisplayName!,
+                    l.CreatedAt,
+                    l.Clicks,
+                    l.IsEnabled,
+                    l.ActiveFromUtc,
+                    l.ActiveToUtc,
+                    l.DeletedAt
+                )).ToList();
+                _logger.LogInformation("Fetched {Count} links for page {PageNo} with page size {PageSize}. Total count: {TotalCount}",
+                    Items.Count, PageNo, PageSize, TotalCount);
             }
-
-            // Filtr: fulltext
-            if (!string.IsNullOrWhiteSpace(Search))
+            catch (Exception ex)
             {
-                var s = Search.Trim();
-                q = q.Where(x =>
-                    x.l.Code.Contains(s) ||
-                    (x.l.TargetUrl != null && x.l.TargetUrl.Contains(s)) ||
-                    (x.l.Title != null && x.l.Title.Contains(s)));
+                _logger.LogError(ex, "Error occurred while fetching links.");
+                FailureMessage = "An error occurred while fetching the links. Please try again later.";
+
             }
-
-            // Filtr: owner podle jména/emailu/sub
-            if (!string.IsNullOrWhiteSpace(Owner))
-            {
-                var o = Owner.Trim();
-                q = q.Where(x =>
-                    (x.o != null && (
-                        (x.o.DisplayName != null && x.o.DisplayName.Contains(o)) ||
-                        (x.o.Email != null && x.o.Email.Contains(o))
-                    )) ||
-                    (x.l.OwnerName != null && x.l.OwnerName.Contains(o)) ||
-                    x.l.OwnerSub.Contains(o));
-            }
-
-            // Filtr: status
-            q = Status?.ToLowerInvariant() switch
-            {
-                "enabled" => q.Where(x => x.l.IsEnabled),
-                "disabled" => q.Where(x => !x.l.IsEnabled),
-                "active" => q.Where(x => x.l.IsEnabled
-                                         && (x.l.ActiveFromUtc == null || x.l.ActiveFromUtc <= now)
-                                         && (x.l.ActiveToUtc == null || x.l.ActiveToUtc > now)),
-                "scheduled" => q.Where(x => x.l.IsEnabled
-                                         && x.l.ActiveFromUtc != null && now < x.l.ActiveFromUtc),
-                "expired" => q.Where(x => x.l.ActiveToUtc != null && now >= x.l.ActiveToUtc),
-                "deleted" => q.Where(x => x.l.DeletedAt != null),
-                _ => q
-            };
-
-            // Filtr: datum vytvoøení
-            if (CreatedFrom.HasValue)
-            {
-                var f = DateTime.SpecifyKind(CreatedFrom.Value.Date, DateTimeKind.Utc);
-                q = q.Where(x => x.l.CreatedAt >= f);
-            }
-            if (CreatedTo.HasValue)
-            {
-                var t = DateTime.SpecifyKind(CreatedTo.Value.Date.AddDays(1).AddTicks(-1), DateTimeKind.Utc);
-                q = q.Where(x => x.l.CreatedAt <= t);
-            }
-
-            // Øazení
-            q = OrderBy switch
-            {
-                "CodeAsc" => q.OrderBy(x => x.l.Code),
-                "CodeDesc" => q.OrderByDescending(x => x.l.Code),
-                "OwnerAsc" => q.OrderBy(x => x.o!.DisplayName ?? x.l.OwnerName ?? x.l.OwnerSub),
-                "OwnerDesc" => q.OrderByDescending(x => x.o!.DisplayName ?? x.l.OwnerName ?? x.l.OwnerSub),
-                "ClicksAsc" => q.OrderBy(x => x.l.Clicks),
-                "ClicksDesc" => q.OrderByDescending(x => x.l.Clicks),
-                "CreatedAsc" => q.OrderBy(x => x.l.CreatedAt),
-                _ => q.OrderByDescending(x => x.l.CreatedAt) // CreatedDesc
-            };
-
-            TotalCount = await q.CountAsync();
-
-            var items = await q
-                .Skip((page - 1) * size)
-                .Take(size)
-                .Select(x => new Row(
-                    x.l.Id,
-                    x.l.Code,
-                    x.l.TargetUrl,
-                    "", // doplníme v PostProcess (URL potøebuje Request.Host)
-                    x.o != null
-                        ? (x.o.DisplayName ?? x.o.Email ?? x.l.OwnerName ?? x.l.OwnerSub)
-                        : (x.l.OwnerName ?? x.l.OwnerSub),
-                    x.l.CreatedAt,
-                    x.l.Clicks,
-                    x.l.IsEnabled,
-                    x.l.ActiveFromUtc,
-                    x.l.ActiveToUtc,
-                    x.l.DeletedAt
-                ))
-                .ToListAsync();
-
-            // dopoèítej krátkou URL až v aplikaci (kvùli Request.Host)
-            Items = items.Select(i => i with { ShortUrlDisplay = BuildShortUrl(i.Code) }).ToList();
-
-            PageNo = page;
-            PageSize = size;
         }
 
         private string BuildShortUrl(string code)

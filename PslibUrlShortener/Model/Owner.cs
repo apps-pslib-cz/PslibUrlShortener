@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 
 namespace PslibUrlShortener.Model
@@ -24,5 +25,8 @@ namespace PslibUrlShortener.Model
 
         [Column(TypeName = "datetime2(0)")]
         public DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;
+
+        [JsonIgnore]
+        public ICollection<Link>? Links { get; set; }
     }
 }

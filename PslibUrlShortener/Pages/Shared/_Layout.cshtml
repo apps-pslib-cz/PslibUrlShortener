@@ -1,7 +1,7 @@
 ﻿@using System.Security.Claims
 @inject Microsoft.Extensions.Configuration.IConfiguration Config
 @{
-    var appName = Config["App:Name"] ?? "PslibUrlShortener";
+    var appName = Config["App:Name"] ?? "go.pslib.cz";
 
     bool HasClaim(string type, params string[] accepted) =>
         User?.FindAll(type).Any(c => accepted.Any(a => string.Equals(c.Value, a, StringComparison.OrdinalIgnoreCase))) == true;
@@ -15,7 +15,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@(ViewData["Title"] is string t && !string.IsNullOrWhiteSpace(t) ? $"{t} – {appName}" : appName)</title>
+    <title>@(ViewData["Title"] is string t && !string.IsNullOrWhiteSpace(t) ? $"{t} | {appName}" : appName)</title>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/lib/bootstrap-icons/bootstrap-icons.min.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
@@ -34,21 +34,18 @@
 
                 <div class="collapse navbar-collapse justify-content-between" id="navMain">
                     <ul class="navbar-nav me-auto mb-2 mb-sm-0">
-                        <li class="nav-item">
-                            <a class="nav-link" asp-area="" asp-page="/Index">Home</a>
-                        </li>
 
                         @if (User?.Identity?.IsAuthenticated == true && IsShortenerUser())
                         {
                             <li class="nav-item">
-                                <a class="nav-link" asp-area="Links" asp-page="/Index">My links</a>
+                                <a class="nav-link" asp-area="Links" asp-page="/Index">Moje odkazy</a>
                             </li>
                         }
 
                         @if (User?.Identity?.IsAuthenticated == true && IsShortenerAdmin())
                         {
                             <li class="nav-item">
-                                <a class="nav-link" asp-area="Admin" asp-page="/Index">Administration</a>
+                                <a class="nav-link" asp-area="Admin" asp-page="/Index">Administrace</a>
                             </li>
                         }
                     </ul>
@@ -93,12 +90,12 @@
             <div class="row align-items-center gy-2">
                 <!-- levý sloupec: název aplikace -->
                 <div class="col-12 col-md-4">
-                    <span class="fw-semibold">@appName</span>
+                    <span class="fw-semibold">SPŠ a VOŠ Liberec</span>
                 </div>
 
                 <!-- prostřední sloupec: zatím prázdné místo -->
                 <div class="col-12 col-md-4 text-center">
-                    <!-- záměrně prázdné -->
+                    <span class="fw-semibold">@appName</span>
                 </div>
 
                 <!-- pravý sloupec: logo školy -->

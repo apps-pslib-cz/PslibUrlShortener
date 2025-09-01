@@ -1,20 +1,40 @@
 ﻿@page "/"
+@using PslibUrlShortener.Services.Options
+@inject Microsoft.Extensions.Options.IOptionsSnapshot<AppOptions> App
+
 @model IndexModel
 @{
-    ViewData["Title"] = "Home page";
+    ViewData["Title"] = "Titulní stránka";
+    var isAuthed = User?.Identity?.IsAuthenticated ?? false;
+    var isAdmin = User?.IsInRole("Admin") ?? false; 
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<div class="container py-5">
+
+  <!-- HERO -->
+  <section class="text-center mb-5">
+        <h1 class="display-5 fw-bold mb-3">@App.Value.Name</h1>
+    <p class="lead text-muted mb-4">
+      Jednoduchá aplikace pro generování zkrácených odkazů, QR kódů a jejich správu.
+    </p>
+
+    <div class="d-flex justify-content-center gap-2 flex-wrap">
+      @if (isAuthed)
+      {
+        <a asp-area="Links" asp-page="/Index" class="btn btn-primary btn-lg">
+          <i class="bi bi-link-45deg me-1"></i> Moje odkazy
+        </a>
+        <a asp-area="Links" asp-page="/Create" class="btn btn-outline-primary btn-lg">
+          <i class="bi bi-plus-lg me-1"></i> Vytvořit odkaz
+        </a>
+        @if (isAdmin)
+        {
+          <a asp-area="Admin" asp-page="/Links/Index" class="btn btn-outline-secondary btn-lg">
+            <i class="bi bi-tools me-1"></i> Administrace
+          </a>
+        }
+      }
+    </div>
+  </section>
+
 </div>
-
-@{
-    var claims = User.Claims.ToList();
-}
-<ul>
-    @foreach (var claim in claims)
-    {
-        <li>@claim.Type: @claim.Value</li>
-    }
-</ul>

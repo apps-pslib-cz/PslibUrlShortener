@@ -40,6 +40,9 @@ builder.Services.Configure<ListingOptions>(config.GetSection("Listing"));
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<LinkManager>();
 builder.Services.AddScoped<OwnerManager>();
+builder.Services.AddSingleton<IQrCodeService, QrCodeService>();
+
+builder.Services.Configure<AppOptions>(builder.Configuration.GetSection("App"));
 
 // Politiky
 builder.Services.AddAuthorization(options =>

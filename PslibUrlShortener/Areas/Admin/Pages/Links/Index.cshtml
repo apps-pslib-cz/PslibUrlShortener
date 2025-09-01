@@ -124,8 +124,7 @@
                             <td>@(string.IsNullOrWhiteSpace(row.Domain) ? "(výchozí)" : row.Domain)</td>
                             <td>
                                 <div class="d-flex flex-column">
-                                    <span class="fw-semibold">@row.Code</span>
-                                    <small class="text-muted"><a href="@row.ShortUrlDisplay" target="_blank" rel="noopener">@row.ShortUrlDisplay</a></small>
+                                    <span class="fw-semibold">@row.Code <a href="@row.ShortUrlDisplay" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right"></i></a></span>
                                 </div>
                             </td>
                             <td><a href="@row.TargetUrl" target="_blank" rel="noopener">@row.TargetUrl</a></td>

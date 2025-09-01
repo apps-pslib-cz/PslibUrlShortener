@@ -3,19 +3,232 @@
 @{
     ViewData["Title"] = "Moje odkazy";
 
+    var pageNo = Model.PageNo ?? 1;
+    var pageSize = Model.PageSize ?? Model.ListingOptions.DefaultPageSize;
+    var first = (Model.TotalCount == 0) ? 0 : (pageNo - 1) * pageSize + 1;
+    var last = Math.Min(pageNo * pageSize, Model.TotalCount);
+
     var breadcrumbs = new List<(string, string?)> {
         ("Odkazy", null)
     };
 }
-
 <partial name="/Pages/Shared/_Breadcrumbs.cshtml" model="breadcrumbs" />
 
-<h1>@ViewData["Title"]</h1>
+<h1 class="mb-3">@ViewData["Title"]</h1>
 
-<div class="d-flex flex-wrap align-items-end justify-content-between gap-2 mb-3">
-    <div class="btn-group">
-        <a asp-area="Links" asp-page="Create" class="btn btn-primary">Nový odkaz</a>
+<div>
+    <div class="btn-group mb-3">
+        <a asp-area="Links" asp-page="Create" class="btn btn-primary">
+            <i class="bi bi-plus-lg"></i> Nový odkaz
+        </a>
     </div>
 
+    <form method="get" class="d-flex gap-2 align-items-end flex-wrap mb-3">
+        <div>
+            <label for="Search" class="form-label">Hledat</label>
+            <input id="Search" type="text" name="Search" value="@Model.Search" class="form-control"
+                   placeholder="kód, cílová URL, název, poznámka…" />
+        </div>
+        <div>
+            <label for="Enabled" class="form-label">Stav</label>
+            <select id="Enabled" name="Enabled" class="form-select">
+                <option value="" selected="@(Model.Enabled is null)">Vše</option>
+                <option value="true" selected="@(Model.Enabled == true)">Povoleno</option>
+                <option value="false" selected="@(Model.Enabled == false)">Zakázáno</option>
+            </select>
+        </div>
 
+        <input type="hidden" name="PageSize" value="@pageSize" />
+        <input type="hidden" name="OrderBy" value="@Model.OrderBy" />
+        <button type="submit" class="btn btn-primary">Filtrovat</button>
+        <a asp-page="./Index"
+           asp-route-PageSize="@pageSize"
+           asp-route-OrderBy="@Model.OrderBy"
+           class="btn btn-secondary">Reset</a>
+    </form>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-striped align-middle">
+        <thead>
+            <tr>
+                <th aria-sort="@(Model.OrderBy == "CodeDesc" ? "descending" : (Model.OrderBy == "CodeAsc" ? "ascending" : "none"))">
+                    <a asp-page="./Index"
+                       asp-route-Search="@Model.Search"
+                       asp-route-Enabled="@(Model.Enabled?.ToString().ToLower())"
+                       asp-route-PageSize="@pageSize"
+                       asp-route-OrderBy="@(Model.OrderBy == "CodeAsc" ? "CodeDesc" : "CodeAsc")">
+                        Krátký kód
+                        @if (Model.OrderBy == "CodeAsc")
+                        {
+                            <span aria-hidden="true">↑</span>
+                        }
+                        else if (Model.OrderBy == "CodeDesc")
+                        {
+
+                            <span aria-hidden="true">↓</span>
+                        }
+                    </a>
+                </th>
+
+                <th>Odkaz</th>
+
+                <th aria-sort="@(Model.OrderBy == "ClicksDesc" ? "descending" : (Model.OrderBy == "ClicksAsc" ? "ascending" : "none"))" class="text-end">
+                    <a asp-page="./Index"
+                       asp-route-Search="@Model.Search"
+                       asp-route-Enabled="@(Model.Enabled?.ToString().ToLower())"
+                       asp-route-PageSize="@pageSize"
+                       asp-route-OrderBy="@(Model.OrderBy == "ClicksAsc" ? "ClicksDesc" : "ClicksAsc")">
+                        Použití
+                        @if (Model.OrderBy == "ClicksAsc")
+                        {
+                            <span aria-hidden="true">↑</span>
+                        }
+                        else if (Model.OrderBy == "ClicksDesc")
+                        {
+
+                            <span aria-hidden="true">↓</span>
+                        }
+                    </a>
+                </th>
+
+                <th aria-sort="@(Model.OrderBy == "CreatedAsc" ? "ascending" : (Model.OrderBy == "CreatedDesc" ? "descending" : "none"))">
+                    <a asp-page="./Index"
+                       asp-route-Search="@Model.Search"
+                       asp-route-Enabled="@(Model.Enabled?.ToString().ToLower())"
+                       asp-route-PageSize="@pageSize"
+                       asp-route-OrderBy="@(Model.OrderBy == "CreatedAsc" ? "CreatedDesc" : "CreatedAsc")">
+                        Vytvořeno
+                        @if (Model.OrderBy == "CreatedAsc")
+                        {
+                            <span aria-hidden="true">↑</span>
+                        }
+                        else if (Model.OrderBy == "CreatedDesc")
+                        {
+
+                            <span aria-hidden="true">↓</span>
+                        }
+                    </a>
+                </th>
+
+                <th>Stav</th>
+                <th>Akce</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            @if (!Model.Items.Any())
+            {
+                <tr><td colspan="6" class="text-center">Žádná položka k zobrazení.</td></tr>
+            }
+            else
+            {
+                @foreach (var row in Model.Items)
+                {
+                    <tr class="@(row.DeletedAtUtc != null ? "table-secondary text-muted" : "")">
+                        <td>
+                            <div class="d-flex flex-column">
+                                <span class="fw-semibold">
+                                    @row.Code
+                                    <a href="@row.ShortUrlDisplay" target="_blank" rel="noopener" class="ms-1">
+                                        <i class="bi bi-box-arrow-up-right"></i>
+                                    </a>
+                                </span>
+                                <small class="text-muted"><a href="@row.ShortUrlDisplay" target="_blank" rel="noopener">@row.ShortUrlDisplay</a></small>
+                            </div>
+                        </td>
+                        <td style="word-break: break-all;">
+                            <a href="@row.TargetUrl" target="_blank" rel="noopener">@row.TargetUrl</a>
+                            @if (!string.IsNullOrWhiteSpace(row.Title))
+                            {
+                                <div><small class="text-muted">@row.Title</small></div>
+                            }
+                        </td>
+                        <td class="text-end">
+                            <span class="fw-semibold">@row.Clicks</span>
+                            @if (row.LastAccessAtUtc is not null)
+                            {
+                                <div><small class="text-muted">naposledy @row.LastAccessAtUtc?.ToString("g")</small></div>
+                            }
+                        </td>
+                        <td>@row.CreatedAt.ToString("g")</td>
+                        <td>
+                            @if (row.IsEnabled)
+                            {
+                                <span class="badge bg-success">povoleno</span>
+                            }
+                            else
+                            {
+
+                                <span class="badge bg-secondary">zakázáno</span>
+                            }
+                            @if (row.DeletedAtUtc is not null)
+                            {
+                                <span class="badge bg-warning text-dark ms-1">smazáno</span>
+                            }
+                        </td>
+                        <td>
+                            <div class="btn-group">
+                                <a asp-area="Links" asp-page="Details" asp-route-id="@row.Id" class="btn btn-sm btn-primary" title="Detail">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <a asp-area="Links" asp-page="Edit" asp-route-id="@row.Id" class="btn btn-sm btn-secondary" title="Upravit">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+
+                                @if (row.DeletedAtUtc == null)
+                                {
+                                    <form method="post" asp-page-handler="SoftDelete" asp-route-id="@row.Id" class="d-inline">
+                                        <button type="submit" class="btn btn-sm btn-warning" title="Označit jako smazané">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                }
+                                else
+                                {
+                                    <form method="post" asp-page-handler="Restore" asp-route-id="@row.Id" class="d-inline">
+                                        <button type="submit" class="btn btn-sm btn-success" title="Obnovit">
+                                            <i class="bi bi-arrow-counterclockwise"></i>
+                                        </button>
+                                    </form>
+                                }
+                            </div>
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+
+        <tfoot>
+            <tr>
+                <td>
+                    @first – @last z @Model.TotalCount
+                </td>
+                <td colspan="3" class="text-end">
+                    <pagination page-no="@(pageNo)"
+                                page-size="@(pageSize)"
+                                total-count="@Model.TotalCount"
+                                page="./Index"
+                                route-values="@(new Dictionary<string,string?> {
+                                                                { "Search", Model.Search },
+                                                                { "Enabled", Model.Enabled?.ToString().ToLower() },
+                                                                { "OrderBy", Model.OrderBy }
+                                                            })">
+                    </pagination>
+                </td>
+                <td class="text-end" colspan="2">
+                    <pagesize-selector page-size="@(pageSize)"
+                                       sizes="@(Model.PageSizeNumbers)"
+                                       page-no="@(pageNo)"
+                                       page="./Index"
+                                       route-values="@(new Dictionary<string,string?> {
+                                                                              { "Search", Model.Search },
+                                                                              { "Enabled", Model.Enabled?.ToString().ToLower() },
+                                                                              { "OrderBy", Model.OrderBy }
+                                                                          })">
+                    </pagesize-selector>
+                </td>
+            </tr>
+        </tfoot>
+    </table>
 </div>

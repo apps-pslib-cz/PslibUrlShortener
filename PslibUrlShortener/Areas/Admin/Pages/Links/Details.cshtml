@@ -14,22 +14,69 @@
 
 <h1 class="mb-4">@ViewData["Title"]</h1>
 
+<!-- Panel s krátkou adresou + QR + akcemi -->
 <div class="card border-0 shadow-sm mb-4">
     <div class="card-body">
-        <div class="d-flex align-items-start gap-3 flex-wrap">
+        <div class="d-flex align-items-start gap-4 flex-wrap flex-md-nowrap">
+            <!-- Levý blok: krátká adresa + akce -->
             <div class="flex-grow-1">
                 <div class="text-muted small">Krátká adresa</div>
-                <div class="d-flex align-items-center gap-2">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
                     <a class="fw-semibold" href="@Model.ShortUrlPreview" target="_blank" rel="noopener">@Model.ShortUrlPreview</a>
-                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="navigator.clipboard.writeText('@Model.ShortUrlPreview')">
-                        <i class="bi bi-clipboard"></i> Kopírovat
-                    </button>
-                    <a class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener" href="@Model.ShortUrlPreview">
-                        <i class="bi bi-box-arrow-up-right"></i> Otevřít
-                    </a>
+
+                    <div class="btn-group btn-group-sm" role="group" aria-label="Akce s odkazem">
+                        <button type="button" class="btn btn-outline-secondary"
+                                title="Kopírovat"
+                                onclick="navigator.clipboard.writeText('@Model.ShortUrlPreview')">
+                            <i class="bi bi-clipboard"></i>
+                        </button>
+                        <a class="btn btn-outline-secondary" target="_blank" rel="noopener" title="Otevřít" href="@Model.ShortUrlPreview">
+                            <i class="bi bi-box-arrow-up-right"></i>
+                        </a>
+                    </div>
                 </div>
             </div>
 
+            <!-- Prostřední blok: QR kód + ovládání -->
+            <div class="ms-md-auto">
+                <div class="border rounded p-2 bg-white text-center">
+                    <img id="qr-img"
+                         src="@Url.Page("./Details", new { id = d.Id, handler = "Qr", fmt = "svg", s = 256 })"
+                         alt="QR kód krátké adresy"
+                         class="img-fluid"
+                         width="256" height="256"
+                         decoding="async" loading="lazy" />
+                </div>
+
+                <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+                    <label for="qr-size" class="form-label small mb-0">Velikost</label>
+                    <select id="qr-size" class="form-select form-select-sm" style="width: auto;">
+                        <option value="128">128 px</option>
+                        <option value="256" selected>256 px</option>
+                        <option value="384">384 px</option>
+                        <option value="512">512 px</option>
+                    </select>
+
+                    <div class="btn-group btn-group-sm ms-1" role="group" aria-label="Formát QR">
+                        <input type="radio" class="btn-check" name="qrFmt" id="qrFmtSvg" value="svg" autocomplete="off" checked>
+                        <label class="btn btn-outline-secondary" for="qrFmtSvg">SVG</label>
+                        <input type="radio" class="btn-check" name="qrFmt" id="qrFmtPng" value="png" autocomplete="off">
+                        <label class="btn btn-outline-secondary" for="qrFmtPng">PNG</label>
+                    </div>
+
+                    <a id="qr-download" class="btn btn-sm btn-outline-secondary ms-1"
+                       title="Stáhnout QR" download='@($"qr-{d.Code}.svg")'>
+                        <i class="bi bi-download"></i> Stáhnout
+                    </a>
+
+                    <button type="button" id="qr-print" class="btn btn-sm btn-outline-secondary"
+                            title="Tisk QR">
+                        <i class="bi bi-printer"></i> Tisk
+                    </button>
+                </div>
+            </div>
+
+            <!-- Pravý blok: původní akce -->
             <div class="ms-auto d-flex gap-2">
                 <a asp-area="Admin" asp-page="Edit" asp-route-id="@d.Id" class="btn btn-secondary">
                     <i class="bi bi-pencil"></i> Upravit
@@ -187,3 +234,47 @@
         }
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        (function () {
+          const img = document.getElementById('qr-img');
+          const sizeSel = document.getElementById('qr-size');
+          const fmtRadios = document.querySelectorAll('input[name="qrFmt"]');
+          const dl = document.getElementById('qr-download');
+          const printBtn = document.getElementById('qr-print');
+
+          // Sestav základ URL pro QR handler. Html.Raw kvůli &amp;
+          const base = '@Html.Raw(Url.Page("./Details", new { id = d.Id, handler = "Qr" }))';
+          const code = '@d.Code';
+
+          function rebuild() {
+            const s = sizeSel.value;
+            const fmt = [...fmtRadios].find(r => r.checked)?.value || 'svg';
+            const url = `${base}&fmt=${fmt}&s=${s}`;
+            img.src = url;
+            dl.href = url;
+            dl.setAttribute('download', `qr-${code}.${fmt}`);
+          }
+
+          function printQr() {
+            const s = sizeSel.value;
+            const fmt = [...fmtRadios].find(r => r.checked)?.value || 'svg';
+            const url = `${base}&fmt=${fmt}&s=${s}`;
+            const w = window.open('', '_blank', 'noopener,noreferrer,width=400,height=480');
+            if (!w) return;
+            w.document.write(`<!doctype html><title>QR ${code}</title>
+              <style>body{margin:0;display:flex;align-items:center;justify-content:center;background:#fff}
+                     img{max-width:100%;height:auto;}</style>
+              <img src="${url}" alt="QR ${code}">
+              <script>window.onload=function(){setTimeout(()=>window.print(),100)}<\/script>`);
+            w.document.close();
+          }
+
+          sizeSel.addEventListener('change', rebuild);
+          fmtRadios.forEach(r => r.addEventListener('change', rebuild));
+          printBtn.addEventListener('click', printQr);
+          rebuild();
+        })();
+    </script>
+}

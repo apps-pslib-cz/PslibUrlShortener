@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using PslibUrlShortener.Model;
 using PslibUrlShortener.Services;
+using PslibUrlShortener.Services.Options;
 
 namespace PslibUrlShortener.Areas.Admin.Pages.Links
 {
@@ -10,11 +11,13 @@ namespace PslibUrlShortener.Areas.Admin.Pages.Links
     {
         private readonly LinkManager _linkManager;
         private readonly ILogger<DetailsModel> _logger;
+        private readonly IQrCodeService _qr;
 
-        public DetailsModel(LinkManager linkManager, ILogger<DetailsModel> logger)
+        public DetailsModel(LinkManager linkManager, IQrCodeService qr, ILogger<DetailsModel> logger)
         {
-            _linkManager = linkManager ?? throw new ArgumentNullException(nameof(linkManager));
-            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _linkManager = linkManager;
+            _qr = qr;
+            _logger = logger;
         }
 
         // Data pro UI
@@ -120,6 +123,30 @@ namespace PslibUrlShortener.Areas.Admin.Pages.Links
                 TempData["FailureMessage"] = "Obnovení se nepodaøilo.";
             }
             return RedirectToPage(new { id, HitsPage, HitsPageSize });
+        }
+
+        public async Task<IActionResult> OnGetQrAsync(int id, string fmt = "svg", int s = 256, QrPreset preset = QrPreset.Default)
+        {
+            var link = await _linkManager.Query()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(l => l.Id == id);
+            if (link is null) return NotFound();
+
+            var baseUrl = $"{HttpContext.Request.Scheme}://{HttpContext.Request.Host}";
+            var url = _linkManager.GenerateShortUrl(link.Domain, link.Code, baseUrl);
+
+            Response.Headers.CacheControl = "public, max-age=604800, immutable";
+
+            if (fmt.Equals("png", StringComparison.OrdinalIgnoreCase))
+            {
+                var bytes = _qr.GeneratePng(url, s, preset);
+                return File(bytes, "image/png");
+            }
+            else
+            {
+                var svg = _qr.GenerateSvg(url, preset);
+                return Content(svg, "image/svg+xml; charset=utf-8");
+            }
         }
 
         public record ViewModel(

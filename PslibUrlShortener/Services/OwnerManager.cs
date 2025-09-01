@@ -166,7 +166,7 @@ namespace PslibUrlShortener.Services
         private static Owner FromClaims(ClaimsPrincipal user, string sub) => new()
         {
             Sub = sub,
-            DisplayName = user.FindFirstValue(ClaimTypes.Name) ?? "(unknown)",
+            DisplayName = user.FindFirstValue(ClaimTypes.Name) ?? "(neznámý)",
             Email = user.FindFirstValue(ClaimTypes.Email) ?? null
         };
     }

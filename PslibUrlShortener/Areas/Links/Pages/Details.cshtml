@@ -1,5 +1,261 @@
-﻿@page
-@using PslibUrlShortener.Areas.Links.Pages
+﻿@page "{id:int}"
 @model PslibUrlShortener.Areas.Links.Pages.DetailsModel
 @{
+    ViewData["Title"] = "Detail odkazu";
+    var breadcrumbs = new List<(string, string?)> {
+        ("Odkazy", Url.Page("./Index")),
+        ("Detail", null)
+    };
+    var d = Model.Data;
+}
+<partial name="/Pages/Shared/_Breadcrumbs.cshtml" model="breadcrumbs" />
+
+<h1 class="mb-4">@ViewData["Title"]</h1>
+
+<!-- Panel s krátkou adresou + QR + akcemi -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+        <div class="d-flex align-items-start gap-4 flex-wrap flex-md-nowrap">
+            <!-- Levý blok: krátká adresa + akce -->
+            <div class="flex-grow-1">
+                <div class="text-muted small">Krátká adresa</div>
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <a class="fw-semibold" href="@Model.ShortUrlPreview" target="_blank" rel="noopener">@Model.ShortUrlPreview</a>
+
+                    <div class="btn-group btn-group-sm" role="group" aria-label="Akce s odkazem">
+                        <button type="button" class="btn btn-outline-secondary"
+                                title="Kopírovat"
+                                onclick="navigator.clipboard.writeText('@Model.ShortUrlPreview')">
+                            <i class="bi bi-clipboard"></i>
+                        </button>
+                        <a class="btn btn-outline-secondary" target="_blank" rel="noopener" title="Otevřít" href="@Model.ShortUrlPreview">
+                            <i class="bi bi-box-arrow-up-right"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Prostřední blok: QR kód + ovládání -->
+            <div class="ms-md-auto">
+                <div class="border rounded p-2 bg-white text-center">
+                    <img id="qr-img"
+                         src='@Url.Page("./Details", new { id = d.Id, handler = "Qr", fmt = "svg", s = 256 })'
+                         alt="QR kód krátké adresy"
+                         class="img-fluid"
+                         width="256" height="256"
+                         decoding="async" loading="lazy" />
+                </div>
+
+                <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+                    <label for="qr-size" class="form-label small mb-0">Velikost</label>
+                    <select id="qr-size" class="form-select form-select-sm" style="width: auto;">
+                        <option value="128">128 px</option>
+                        <option value="256" selected>256 px</option>
+                        <option value="384">384 px</option>
+                        <option value="512">512 px</option>
+                    </select>
+
+                    <div class="btn-group btn-group-sm ms-1" role="group" aria-label="Formát QR">
+                        <input type="radio" class="btn-check" name="qrFmt" id="qrFmtSvg" value="svg" autocomplete="off" checked>
+                        <label class="btn btn-outline-secondary" for="qrFmtSvg">SVG</label>
+                        <input type="radio" class="btn-check" name="qrFmt" id="qrFmtPng" value="png" autocomplete="off">
+                        <label class="btn btn-outline-secondary" for="qrFmtPng">PNG</label>
+                    </div>
+
+                    <a id="qr-download" class="btn btn-sm btn-outline-secondary ms-1"
+                       title="Stáhnout QR" download='@($"qr-{d.Code}.svg")'>
+                        <i class="bi bi-download"></i> Stáhnout
+                    </a>
+
+                    <button type="button" id="qr-print" class="btn btn-sm btn-outline-secondary"
+                            title="Tisk QR">
+                        <i class="bi bi-printer"></i> Tisk
+                    </button>
+                </div>
+            </div>
+
+            <!-- Pravý blok: uživatelské akce -->
+            <div class="ms-auto d-flex gap-2">
+                <a asp-area="Links" asp-page="Edit" asp-route-id="@d.Id" class="btn btn-secondary">
+                    <i class="bi bi-pencil"></i> Upravit
+                </a>
+
+                @if (d.DeletedAt == null)
+                {
+                    <form method="post" asp-page-handler="SoftDelete" asp-route-id="@d.Id" class="d-inline">
+                        <button type="submit" class="btn btn-warning">
+                            <i class="bi bi-trash"></i> Označit jako smazané
+                        </button>
+                    </form>
+                }
+                else
+                {
+                    <form method="post" asp-page-handler="Restore" asp-route-id="@d.Id" class="d-inline">
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-arrow-counterclockwise"></i> Obnovit
+                        </button>
+                    </form>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-12 col-xl-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <h5 class="card-title mb-3">Základní informace</h5>
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Krátký kód</dt>
+                    <dd class="col-sm-8">@d.Code</dd>
+
+                    <dt class="col-sm-4">Cílová URL</dt>
+                    <dd class="col-sm-8"><a href="@d.TargetUrl" target="_blank" rel="noopener">@d.TargetUrl</a></dd>
+
+                    <dt class="col-sm-4">Titulek</dt>
+                    <dd class="col-sm-8">@d.Title</dd>
+
+                    <dt class="col-sm-4">Poznámka</dt>
+                    <dd class="col-sm-8">@d.Note</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-xl-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <h5 class="card-title mb-3">Stav a metriky</h5>
+                <dl class="row mb-0">
+                    <dt class="col-sm-5">Vytvořeno</dt>
+                    <dd class="col-sm-7">@d.CreatedAt.ToString("g")</dd>
+
+                    <dt class="col-sm-5">Aktivní</dt>
+                    <dd class="col-sm-7">@((d.IsEnabled ? "Ano" : "Ne"))</dd>
+
+                    <dt class="col-sm-5">Okno aktivity (UTC)</dt>
+                    <dd class="col-sm-7">@(d.ActiveFromUtc?.ToString("g") ?? "—") – @(d.ActiveToUtc?.ToString("g") ?? "—")</dd>
+
+                    <dt class="col-sm-5">Poslední přístup</dt>
+                    <dd class="col-sm-7">@((d.LastAccessAt.HasValue ? d.LastAccessAt.Value.ToString("g") : "—"))</dd>
+
+                    <dt class="col-sm-5">Kliknutí celkem</dt>
+                    <dd class="col-sm-7">@d.Clicks</dd>
+
+                    <dt class="col-sm-5">Smazáno</dt>
+                    <dd class="col-sm-7">@((d.DeletedAt.HasValue ? d.DeletedAt.Value.ToString("g") : "Ne"))</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm mt-4">
+    <div class="card-body">
+        <h5 class="card-title mb-3">Poslední přístupy</h5>
+
+        @if (d.HitsTotal == 0)
+        {
+            <div class="text-muted">Pro tento odkaz zatím nejsou žádné záznamy.</div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-striped align-middle">
+                    <thead>
+                        <tr>
+                            <th style="width: 180px;">Čas (UTC)</th>
+                            <th>Referer</th>
+                            <th>User-Agent</th>
+                            <th style="width: 100px;">Bot</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var h in d.Hits)
+                        {
+                            <tr>
+                                <td>@h.AtUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                                <td class="text-truncate" style="max-width: 420px;">@h.Referer</td>
+                                <td class="text-truncate" style="max-width: 420px;">@h.UserAgent</td>
+                                <td>@(h.IsBot ? "Ano" : "Ne")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <nav aria-label="Stránkování hitů" class="d-flex justify-content-between align-items-center">
+                <span class="text-muted small">
+                    Zobrazeno
+                    @{
+                        var first = ((d.HitsPage - 1) * d.HitsPageSize) + 1;
+                        var last = Math.Min(d.HitsPage * d.HitsPageSize, d.HitsTotal);
+                    }
+                    @first – @last z @d.HitsTotal
+                </span>
+
+                <ul class="pagination mb-0">
+                    <li class="page-item @(d.HitsPage <= 1 ? "disabled" : "")">
+                        <a class="page-link"
+                           asp-page="./Details"
+                           asp-route-id="@d.Id"
+                           asp-route-HitsPage="@(Math.Max(1, d.HitsPage - 1))"
+                           asp-route-HitsPageSize="@d.HitsPageSize">Předchozí</a>
+                    </li>
+                    <li class="page-item @((d.HitsPage * d.HitsPageSize >= d.HitsTotal) ? "disabled" : "")">
+                        <a class="page-link"
+                           asp-page="./Details"
+                           asp-route-id="@d.Id"
+                           asp-route-HitsPage="@(d.HitsPage + 1)"
+                           asp-route-HitsPageSize="@d.HitsPageSize">Další</a>
+                    </li>
+                </ul>
+            </nav>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+          const img = document.getElementById('qr-img');
+          const sizeSel = document.getElementById('qr-size');
+          const fmtRadios = document.querySelectorAll('input[name="qrFmt"]');
+          const dl = document.getElementById('qr-download');
+          const printBtn = document.getElementById('qr-print');
+
+          // Sestav základ URL pro QR handler. Html.Raw kvůli &amp; v query.
+          const base = '@Html.Raw(Url.Page("./Details", new { id = d.Id, handler = "Qr" }))';
+          const code = '@d.Code';
+
+          function rebuild() {
+            const s = sizeSel.value;
+            const fmt = [...fmtRadios].find(r => r.checked)?.value || 'svg';
+            const url = `${base}&fmt=${fmt}&s=${s}`;
+            img.src = url;
+            dl.href = url;
+            dl.setAttribute('download', `qr-${code}.${fmt}`);
+          }
+
+          function printQr() {
+            const s = sizeSel.value;
+            const fmt = [...fmtRadios].find(r => r.checked)?.value || 'svg';
+            const url = `${base}&fmt=${fmt}&s=${s}`;
+            const w = window.open('', '_blank', 'noopener,noreferrer,width=400,height=480');
+            if (!w) return;
+            w.document.write(`<!doctype html><title>QR ${code}</title>
+              <style>body{margin:0;display:flex;align-items:center;justify-content:center;background:#fff}
+                     img{max-width:100%;height:auto;}</style>
+              <img src="${url}" alt="QR ${code}">
+              <script>window.onload=function(){setTimeout(()=>window.print(),100)}<\/script>`);
+            w.document.close();
+          }
+
+          sizeSel.addEventListener('change', rebuild);
+          fmtRadios.forEach(r => r.addEventListener('change', rebuild));
+          printBtn.addEventListener('click', printQr);
+          rebuild();
+        })();
+    </script>
 }

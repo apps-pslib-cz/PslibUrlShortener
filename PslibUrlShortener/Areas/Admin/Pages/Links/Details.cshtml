@@ -14,7 +14,7 @@
 
 <h1 class="mb-4">@ViewData["Title"]</h1>
 
-<!-- Panel s krátkou adresou + QR + akcemi -->
+<!-- Panel s krátkou adresou + akcemi -->
 <div class="card border-0 shadow-sm mb-4">
     <div class="card-body">
         <div class="d-flex align-items-start gap-4 flex-wrap flex-md-nowrap">
@@ -37,46 +37,7 @@
                 </div>
             </div>
 
-            <!-- Prostřední blok: QR kód + ovládání -->
-            <div class="ms-md-auto">
-                <div class="border rounded p-2 bg-white text-center">
-                    <img id="qr-img"
-                         src="@Url.Page("./Details", new { id = d.Id, handler = "Qr", fmt = "svg", s = 256 })"
-                         alt="QR kód krátké adresy"
-                         class="img-fluid"
-                         width="256" height="256"
-                         decoding="async" loading="lazy" />
-                </div>
-
-                <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
-                    <label for="qr-size" class="form-label small mb-0">Velikost</label>
-                    <select id="qr-size" class="form-select form-select-sm" style="width: auto;">
-                        <option value="128">128 px</option>
-                        <option value="256" selected>256 px</option>
-                        <option value="384">384 px</option>
-                        <option value="512">512 px</option>
-                    </select>
-
-                    <div class="btn-group btn-group-sm ms-1" role="group" aria-label="Formát QR">
-                        <input type="radio" class="btn-check" name="qrFmt" id="qrFmtSvg" value="svg" autocomplete="off" checked>
-                        <label class="btn btn-outline-secondary" for="qrFmtSvg">SVG</label>
-                        <input type="radio" class="btn-check" name="qrFmt" id="qrFmtPng" value="png" autocomplete="off">
-                        <label class="btn btn-outline-secondary" for="qrFmtPng">PNG</label>
-                    </div>
-
-                    <a id="qr-download" class="btn btn-sm btn-outline-secondary ms-1"
-                       title="Stáhnout QR" download='@($"qr-{d.Code}.svg")'>
-                        <i class="bi bi-download"></i> Stáhnout
-                    </a>
-
-                    <button type="button" id="qr-print" class="btn btn-sm btn-outline-secondary"
-                            title="Tisk QR">
-                        <i class="bi bi-printer"></i> Tisk
-                    </button>
-                </div>
-            </div>
-
-            <!-- Pravý blok: původní akce -->
+            <!-- Pravý blok: akce -->
             <div class="ms-auto d-flex gap-2">
                 <a asp-area="Admin" asp-page="Edit" asp-route-id="@d.Id" class="btn btn-secondary">
                     <i class="bi bi-pencil"></i> Upravit
@@ -85,6 +46,7 @@
                 @if (d.DeletedAt == null)
                 {
                     <form method="post" asp-page-handler="SoftDelete" asp-route-id="@d.Id" class="d-inline">
+                        @Html.AntiForgeryToken()
                         <button type="submit" class="btn btn-warning">
                             <i class="bi bi-trash"></i> Označit jako smazané
                         </button>
@@ -93,6 +55,7 @@
                 else
                 {
                     <form method="post" asp-page-handler="Restore" asp-route-id="@d.Id" class="d-inline">
+                        @Html.AntiForgeryToken()
                         <button type="submit" class="btn btn-success">
                             <i class="bi bi-arrow-counterclockwise"></i> Obnovit
                         </button>
@@ -102,6 +65,76 @@
                     </a>
                 }
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Hezky zformátované varianty QR -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+        <h5 class="card-title mb-3">QR kód</h5>
+        <div class="row row-cols-1 row-cols-sm-3 g-3">
+
+            <!-- Varianta: Standard -->
+            <div class="col">
+                <div class="h-100 border rounded p-3 d-flex flex-column align-items-center justify-content-between">
+                    <figure class="text-center m-0">
+                        <img src='@Url.Page("./Details", new { id = d.Id, handler = "Qr", fmt = "svg", s = 256 })'
+                             alt="QR kód – standardní"
+                             class="img-fluid"
+                             width="160" height="160"
+                             decoding="async" loading="lazy" />
+                        <figcaption class="small text-muted mt-2">Standardní</figcaption>
+                    </figure>
+                    <a class="btn btn-sm btn-outline-secondary mt-3"
+                       href='@Url.Page("./Details", new { id = d.Id, handler = "Qr", fmt = "svg", s = 512 })'
+                       download='@($"qr-{d.Code}-std.svg")'>
+                        <i class="bi bi-download"></i> Stáhnout SVG
+                    </a>
+                </div>
+            </div>
+
+            <!-- Varianta: Inverzní -->
+            <div class="col">
+                <div class="h-100 border rounded p-3 d-flex flex-column align-items-center justify-content-between">
+                    <figure class="text-center m-0">
+                        <img src='@Url.Page("./Details", new { id = d.Id, handler = "Qr", fmt = "svg", s = 256, inverse = true })'
+                             alt="QR kód – inverzní"
+                             class="img-fluid"
+                             width="160" height="160"
+                             decoding="async" loading="lazy" />
+                        <figcaption class="small text-muted mt-2">Inverzní (bílé na černé)</figcaption>
+                    </figure>
+                    <a class="btn btn-sm btn-outline-secondary mt-3"
+                       href='@Url.Page("./Details", new { id = d.Id, handler = "Qr", fmt = "svg", s = 512, inverse = true })'
+                       download='@($"qr-{d.Code}-inv.svg")'>
+                        <i class="bi bi-download"></i> Stáhnout SVG
+                    </a>
+                </div>
+            </div>
+
+            <!-- Varianta: Kulaté moduly -->
+            <div class="col">
+                <div class="h-100 border rounded p-3 d-flex flex-column align-items-center justify-content-between">
+                    <figure class="text-center m-0">
+                        <img src='@Url.Page("./Details", new { id = d.Id, handler = "Qr", fmt = "svg", s = 256, r = 0.5 })'
+                             alt="QR kód – kulaté body"
+                             class="img-fluid"
+                             width="160" height="160"
+                             decoding="async" loading="lazy" />
+                        <figcaption class="small text-muted mt-2">Kulaté body (SVG)</figcaption>
+                    </figure>
+                    <a class="btn btn-sm btn-outline-secondary mt-3"
+                       href='@Url.Page("./Details", new { id = d.Id, handler = "Qr", fmt = "svg", s = 512, r = 0.3 })'
+                       download='@($"qr-{d.Code}-rnd.svg")'>
+                        <i class="bi bi-download"></i> Stáhnout SVG
+                    </a>
+                </div>
+            </div>
+
+        </div>
+        <div class="text-muted small mt-2">
+            Tip: pro tisk doporučujeme variantu <strong>SVG</strong> (nekonečné rozlišení).
         </div>
     </div>
 </div>
@@ -234,47 +267,3 @@
         }
     </div>
 </div>
-
-@section Scripts {
-    <script>
-        (function () {
-          const img = document.getElementById('qr-img');
-          const sizeSel = document.getElementById('qr-size');
-          const fmtRadios = document.querySelectorAll('input[name="qrFmt"]');
-          const dl = document.getElementById('qr-download');
-          const printBtn = document.getElementById('qr-print');
-
-          // Sestav základ URL pro QR handler. Html.Raw kvůli &amp;
-          const base = '@Html.Raw(Url.Page("./Details", new { id = d.Id, handler = "Qr" }))';
-          const code = '@d.Code';
-
-          function rebuild() {
-            const s = sizeSel.value;
-            const fmt = [...fmtRadios].find(r => r.checked)?.value || 'svg';
-            const url = `${base}&fmt=${fmt}&s=${s}`;
-            img.src = url;
-            dl.href = url;
-            dl.setAttribute('download', `qr-${code}.${fmt}`);
-          }
-
-          function printQr() {
-            const s = sizeSel.value;
-            const fmt = [...fmtRadios].find(r => r.checked)?.value || 'svg';
-            const url = `${base}&fmt=${fmt}&s=${s}`;
-            const w = window.open('', '_blank', 'noopener,noreferrer,width=400,height=480');
-            if (!w) return;
-            w.document.write(`<!doctype html><title>QR ${code}</title>
-              <style>body{margin:0;display:flex;align-items:center;justify-content:center;background:#fff}
-                     img{max-width:100%;height:auto;}</style>
-              <img src="${url}" alt="QR ${code}">
-              <script>window.onload=function(){setTimeout(()=>window.print(),100)}<\/script>`);
-            w.document.close();
-          }
-
-          sizeSel.addEventListener('change', rebuild);
-          fmtRadios.forEach(r => r.addEventListener('change', rebuild));
-          printBtn.addEventListener('click', printQr);
-          rebuild();
-        })();
-    </script>
-}

@@ -1,57 +1,86 @@
-﻿using QRCoder;
+﻿using System.Globalization;
+using System.Text.RegularExpressions;
+using QRCoder;
 using PslibUrlShortener.Services.Options;
 
 namespace PslibUrlShortener.Services
 {
-    /// <summary>
-    /// Stateles služba pro generování QR kódů (SVG/PNG).
-    /// Vhodná jako Singleton.
-    /// </summary>
     public class QrCodeService : IQrCodeService
     {
-        public string GenerateSvg(string text, QrPreset preset = QrPreset.Default)
+        public string GenerateSvg(string text, QrRenderOptions? opt = null)
         {
             if (string.IsNullOrWhiteSpace(text))
                 throw new ArgumentException("QR text nesmí být prázdný.", nameof(text));
 
-            var (ecc, dark, light, quiet) = ResolvePreset(preset);
+            opt ??= QrRenderOptions.Default;
+
             using var gen = new QRCodeGenerator();
-            using var data = gen.CreateQrCode(text, ecc);
-            var svg = new SvgQRCode(data).GetGraphic(pixelsPerModule: 1, darkColorHex: dark, lightColorHex: light, drawQuietZones: quiet);
-            return svg; // image/svg+xml
+            using var data = gen.CreateQrCode(
+                text,
+                opt.EccLevel,
+                forceUtf8: opt.ForceUtf8,
+                utf8BOM: false,
+                eciMode: opt.Eci,
+                requestedVersion: opt.RequestedVersion ?? -1);
+
+            var fg = opt.ForegroundHex ?? "#000000";
+            var bg = opt.BackgroundHex ?? "#FFFFFF";
+
+            // Spočítáme počet modulů včetně quiet zone (4 moduly na stranu => +8)
+            var modules = data.ModuleMatrix.Count + (opt.DrawQuietZones ? 8 : 0);
+
+            // Pokud je zadána cílová velikost SVG, přepočítáme pixelsPerModule
+            var ppm = 1;
+            if (opt.SvgSizePx is int target && target > 0)
+                ppm = Math.Max(1, target / Math.Max(1, modules));
+
+            var svg = new SvgQRCode(data).GetGraphic(ppm, fg, bg, opt.DrawQuietZones);
+
+            // ostřejší vykreslení pro tisk
+            if (!svg.Contains("shape-rendering=\"crispEdges\"", StringComparison.Ordinal))
+                svg = svg.Replace("<svg ", "<svg shape-rendering=\"crispEdges\" ");
+
+            // Zaoblení všech modulů (včetně finder patternů) – přidáme rx/ry
+            if (opt.ModuleRadius is > 0 and <= 0.5)
+            {
+                var r = opt.ModuleRadius.Value.ToString(CultureInfo.InvariantCulture);
+                svg = Regex.Replace(
+                    svg,
+                    @"<rect([^>]*?)width=""1""([^>]*?)height=""1""",
+                    $@"<rect$1width=""1""$2height=""1"" rx=""{r}"" ry=""{r}""",
+                    RegexOptions.CultureInvariant);
+            }
+
+            return svg;
         }
 
-        public byte[] GeneratePng(string text, int size = 256, QrPreset preset = QrPreset.Default)
+        public byte[] GeneratePng(string text, int size = 256, QrRenderOptions? opt = null)
         {
             if (string.IsNullOrWhiteSpace(text))
                 throw new ArgumentException("QR text nesmí být prázdný.", nameof(text));
+
+            opt ??= QrRenderOptions.Default;
             size = Math.Clamp(size, 64, 2048);
 
-            var (ecc, dark, light, quiet) = ResolvePreset(preset);
             using var gen = new QRCodeGenerator();
-            using var data = gen.CreateQrCode(text, ecc);
+            using var data = gen.CreateQrCode(
+                text,
+                opt.EccLevel,
+                forceUtf8: opt.ForceUtf8,
+                utf8BOM: false,
+                eciMode: opt.Eci,
+                requestedVersion: opt.RequestedVersion ?? -1);
 
-            // Heuristika pixels-per-module: velikost / cca 40 modulů (běžná hustota),
-            // s dolní hranicí 2 px pro čitelnost.
+            // ~40 modulů u kratších URL → rozumné minimum
             var ppm = Math.Max(2, size / 40);
-            var darkRgb = HexToRgb(dark);
-            var lightRgb = HexToRgb(light);
-            var png = new PngByteQRCode(data).GetGraphic(ppm, darkRgb, lightRgb, quiet);
-            return png; // image/png
-        }
+            var fg = HexToRgb(opt.ForegroundHex ?? "#000000");
+            var bg = HexToRgb(opt.BackgroundHex ?? "#FFFFFF");
 
-        private static (QRCodeGenerator.ECCLevel ecc, string dark, string light, bool quiet) ResolvePreset(QrPreset preset)
-        {
-            return preset switch
-            {
-                QrPreset.Default => (QRCodeGenerator.ECCLevel.M, "#000000", "#FFFFFF", true),
-                _ => (QRCodeGenerator.ECCLevel.M, "#000000", "#FFFFFF", true)
-            };
+            return new PngByteQRCode(data).GetGraphic(ppm, fg, bg, opt.DrawQuietZones);
         }
 
         private static byte[] HexToRgb(string hex)
         {
-            // "#RRGGBB"
             var h = hex.Trim().TrimStart('#');
             if (h.Length != 6) return new byte[] { 0, 0, 0 };
             return new byte[]

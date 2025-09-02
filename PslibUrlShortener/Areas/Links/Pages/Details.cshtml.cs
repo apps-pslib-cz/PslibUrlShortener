@@ -1,10 +1,11 @@
-using Microsoft.AspNetCore.Mvc;
+Ôªøusing Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using PslibUrlShortener.Data;
 using PslibUrlShortener.Model;
 using PslibUrlShortener.Services;
 using PslibUrlShortener.Services.Options;
+using QRCoder;
 
 namespace PslibUrlShortener.Areas.Links.Pages
 {
@@ -17,9 +18,9 @@ namespace PslibUrlShortener.Areas.Links.Pages
         private readonly IQrCodeService _qr;
 
         public DetailsModel(
-            LinkManager linkManager, 
-            OwnerManager ownerManager, 
-            ApplicationDbContext db, 
+            LinkManager linkManager,
+            OwnerManager ownerManager,
+            ApplicationDbContext db,
             ILogger<DetailsModel> logger,
             IQrCodeService qr)
         {
@@ -34,13 +35,13 @@ namespace PslibUrlShortener.Areas.Links.Pages
         public ViewModel Data { get; private set; } = default!;
         public string? ShortUrlPreview { get; private set; }
 
-        // Query parametry pro str·nkov·nÌ hit˘
+        // Query parametry pro str√°nkov√°n√≠ hit≈Ø
         [BindProperty(SupportsGet = true)] public int? HitsPage { get; set; } = 1;
         [BindProperty(SupportsGet = true)] public int? HitsPageSize { get; set; } = 20;
 
         public async Task<IActionResult> OnGetAsync(int id)
         {
-            // ovÏ¯enÌ vlastnictvÌ
+            // ovƒõ≈ôen√≠ vlastnictv√≠
             var sub = await _ownerManager.EnsureOwnerAsync(User);
 
             var link = await _linkManager.Query()
@@ -53,7 +54,7 @@ namespace PslibUrlShortener.Areas.Links.Pages
                 return RedirectToPage("./Index");
             }
 
-            // n·hled kr·tkÈ URL ñ pro bÏûnÈho uûivatele vûdy v˝chozÌ host
+            // n√°hled kr√°tk√© URL ‚Äì pro bƒõ≈æn√©ho u≈æivatele v≈ædy v√Ωchoz√≠ host (dom√©na pr√°zdn√°)
             var baseUrl = $"{HttpContext.Request.Scheme}://{HttpContext.Request.Host}";
             try
             {
@@ -64,7 +65,7 @@ namespace PslibUrlShortener.Areas.Links.Pages
                 ShortUrlPreview = $"{baseUrl}/{link.Code}";
             }
 
-            // hity (str·nkovanÈ, nejnovÏjöÌ prvnÌ)
+            // hity (str√°nkovan√©, nejnovƒõj≈°√≠ prvn√≠)
             var page = Math.Max(1, HitsPage ?? 1);
             var pageSize = Math.Clamp(HitsPageSize ?? 20, 5, 200);
 
@@ -101,7 +102,8 @@ namespace PslibUrlShortener.Areas.Links.Pages
             return Page();
         }
 
-        // SoftDelete / Restore ñ jen na vlastnÌm odkazu
+        // SoftDelete / Restore ‚Äì jen na vlastn√≠m odkazu
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> OnPostSoftDeleteAsync(int id)
         {
             var sub = await _ownerManager.EnsureOwnerAsync(User);
@@ -116,17 +118,18 @@ namespace PslibUrlShortener.Areas.Links.Pages
             {
                 var updated = await _linkManager.SoftDeleteAsync(id);
                 TempData[updated is null ? "FailureMessage" : "SuccessMessage"] =
-                    updated is null ? "Soft maz·nÌ se nepoda¯ilo." : "Odkaz byl oznaËen jako smazan˝.";
+                    updated is null ? "Soft maz√°n√≠ se nepoda≈ôilo." : "Odkaz byl oznaƒçen jako smazan√Ω.";
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Soft delete failed for Id={Id}", id);
-                TempData["FailureMessage"] = "Soft maz·nÌ se nepoda¯ilo.";
+                TempData["FailureMessage"] = "Soft maz√°n√≠ se nepoda≈ôilo.";
             }
 
             return RedirectToPage(new { id, HitsPage, HitsPageSize });
         }
 
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> OnPostRestoreAsync(int id)
         {
             var sub = await _ownerManager.EnsureOwnerAsync(User);
@@ -141,41 +144,71 @@ namespace PslibUrlShortener.Areas.Links.Pages
             {
                 var updated = await _linkManager.RestoreAsync(id);
                 TempData[updated is null ? "FailureMessage" : "SuccessMessage"] =
-                    updated is null ? "ObnovenÌ se nepoda¯ilo." : "Odkaz byl obnoven.";
+                    updated is null ? "Obnoven√≠ se nepoda≈ôilo." : "Odkaz byl obnoven.";
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Restore failed for Id={Id}", id);
-                TempData["FailureMessage"] = "ObnovenÌ se nepoda¯ilo.";
+                TempData["FailureMessage"] = "Obnoven√≠ se nepoda≈ôilo.";
             }
 
             return RedirectToPage(new { id, HitsPage, HitsPageSize });
         }
 
-        public async Task<IActionResult> OnGetQrAsync(int id, string fmt = "svg", int s = 256, QrPreset preset = QrPreset.Default)
+        // QR handler pro bƒõ≈æn√©ho u≈æivatele (v≈ædy v√Ωchoz√≠ dom√©na)
+        public async Task<IActionResult> OnGetQrAsync(
+            int id,
+            string fmt = "svg",
+            int s = 256,
+            bool inverse = false,
+            bool round = false,
+            double? r = null,          // 0.0‚Äì0.5; kdy≈æ null a round==true => 0.5
+            string ecc = "M",
+            bool qz = true,
+            int? ver = null,
+            string? fg = null,
+            string? bg = null
+        )
         {
-            var sub = await _ownerManager.EnsureOwnerAsync(User);
             var link = await _linkManager.Query()
                 .AsNoTracking()
-                .FirstOrDefaultAsync(l => l.Id == id && l.OwnerSub == sub);
+                .FirstOrDefaultAsync(l => l.Id == id);
             if (link is null) return NotFound();
 
             var baseUrl = $"{Request.Scheme}://{Request.Host}";
+            // Pro u≈æivatele vygenerujeme kr√°tkou adresu v≈ædy s default hostem (dom√©na pr√°zdn√°)
             var url = _linkManager.GenerateShortUrl(null, link.Code, baseUrl);
 
-            // Cache ñ t˝den, immutable (zmÏna kÛdu => nov· URL => novÈ QR)
+            var eccLevel = ecc.ToUpperInvariant() switch
+            {
+                "L" => QRCodeGenerator.ECCLevel.L,
+                "Q" => QRCodeGenerator.ECCLevel.Q,
+                "H" => QRCodeGenerator.ECCLevel.H,
+                _ => QRCodeGenerator.ECCLevel.M
+            };
+
+            // P≈ô√°telsk√© o≈ôez√°n√≠ hodnoty r do 0.0‚Äì0.5; pokud nen√≠, ale round==true ‚Üí 0.5
+            double rValue = r.HasValue ? Math.Clamp(r.Value, 0.0, 0.5) : (round ? 0.5 : 0.0);
+
+            var opt = new QrRenderOptions(
+                EccLevel: eccLevel,
+                DrawQuietZones: qz,
+                RequestedVersion: ver,
+                ForegroundHex: fg ?? (inverse ? "#FFFFFF" : "#000000"),
+                BackgroundHex: bg ?? (inverse ? "#000000" : "#FFFFFF"),
+                ModuleRadius: rValue > 0 ? rValue : null
+            );
+
             Response.Headers.CacheControl = "public, max-age=604800, immutable";
 
             if (fmt.Equals("png", StringComparison.OrdinalIgnoreCase))
             {
-                var bytes = _qr.GeneratePng(url, s, preset);
-                return File(bytes, "image/png");
+                return File(_qr.GeneratePng(url, s, opt), "image/png");
             }
-            else // default SVG
-            {
-                var svg = _qr.GenerateSvg(url, preset);
-                return Content(svg, "image/svg+xml; charset=utf-8");
-            }
+
+            // Pro SVG prom√≠tneme po≈æadovanou velikost do pixels-per-module
+            opt = opt with { SvgSizePx = s };
+            return Content(_qr.GenerateSvg(url, opt), "image/svg+xml; charset=utf-8");
         }
 
         public record ViewModel(

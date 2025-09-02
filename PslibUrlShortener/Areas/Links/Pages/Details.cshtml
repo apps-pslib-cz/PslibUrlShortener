@@ -16,26 +16,6 @@
 <div class="card border-0 shadow-sm mb-4">
     <div class="card-body">
         <div class="d-flex align-items-start gap-4 flex-wrap flex-md-nowrap">
-            <!-- Levý blok: krátká adresa + akce -->
-            <div class="flex-grow-1">
-                <div class="text-muted small">Krátká adresa</div>
-                <div class="d-flex align-items-center gap-2 flex-wrap">
-                    <a class="fw-semibold" href="@Model.ShortUrlPreview" target="_blank" rel="noopener">@Model.ShortUrlPreview</a>
-
-                    <div class="btn-group btn-group-sm" role="group" aria-label="Akce s odkazem">
-                        <button type="button" class="btn btn-outline-secondary"
-                                title="Kopírovat"
-                                onclick="navigator.clipboard.writeText('@Model.ShortUrlPreview')">
-                            <i class="bi bi-clipboard"></i>
-                        </button>
-                        <a class="btn btn-outline-secondary" target="_blank" rel="noopener" title="Otevřít" href="@Model.ShortUrlPreview">
-                            <i class="bi bi-box-arrow-up-right"></i>
-                        </a>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Prostřední blok: QR kód + ovládání -->
             <div class="ms-md-auto">
                 <div class="border rounded p-2 bg-white text-center">
                     <img id="qr-img"
@@ -66,15 +46,27 @@
                        title="Stáhnout QR" download='@($"qr-{d.Code}.svg")'>
                         <i class="bi bi-download"></i> Stáhnout
                     </a>
-
-                    <button type="button" id="qr-print" class="btn btn-sm btn-outline-secondary"
-                            title="Tisk QR">
-                        <i class="bi bi-printer"></i> Tisk
-                    </button>
                 </div>
             </div>
 
-            <!-- Pravý blok: uživatelské akce -->
+            <div class="flex-grow-1">
+                <div class="text-muted small">Krátká adresa</div>
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <a class="fw-semibold" href="@Model.ShortUrlPreview" target="_blank" rel="noopener">@Model.ShortUrlPreview</a>
+
+                    <div class="btn-group btn-group-sm" role="group" aria-label="Akce s odkazem">
+                        <button type="button" class="btn btn-outline-secondary"
+                                title="Kopírovat"
+                                onclick="navigator.clipboard.writeText('@Model.ShortUrlPreview')">
+                            <i class="bi bi-clipboard"></i>
+                        </button>
+                        <a class="btn btn-outline-secondary" target="_blank" rel="noopener" title="Otevřít" href="@Model.ShortUrlPreview">
+                            <i class="bi bi-box-arrow-up-right"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
             <div class="ms-auto d-flex gap-2">
                 <a asp-area="Links" asp-page="Edit" asp-route-id="@d.Id" class="btn btn-secondary">
                     <i class="bi bi-pencil"></i> Upravit
@@ -83,6 +75,7 @@
                 @if (d.DeletedAt == null)
                 {
                     <form method="post" asp-page-handler="SoftDelete" asp-route-id="@d.Id" class="d-inline">
+                        @Html.AntiForgeryToken()
                         <button type="submit" class="btn btn-warning">
                             <i class="bi bi-trash"></i> Označit jako smazané
                         </button>
@@ -91,6 +84,7 @@
                 else
                 {
                     <form method="post" asp-page-handler="Restore" asp-route-id="@d.Id" class="d-inline">
+                        @Html.AntiForgeryToken()
                         <button type="submit" class="btn btn-success">
                             <i class="bi bi-arrow-counterclockwise"></i> Obnovit
                         </button>
@@ -236,20 +230,6 @@
             img.src = url;
             dl.href = url;
             dl.setAttribute('download', `qr-${code}.${fmt}`);
-          }
-
-          function printQr() {
-            const s = sizeSel.value;
-            const fmt = [...fmtRadios].find(r => r.checked)?.value || 'svg';
-            const url = `${base}&fmt=${fmt}&s=${s}`;
-            const w = window.open('', '_blank', 'noopener,noreferrer,width=400,height=480');
-            if (!w) return;
-            w.document.write(`<!doctype html><title>QR ${code}</title>
-              <style>body{margin:0;display:flex;align-items:center;justify-content:center;background:#fff}
-                     img{max-width:100%;height:auto;}</style>
-              <img src="${url}" alt="QR ${code}">
-              <script>window.onload=function(){setTimeout(()=>window.print(),100)}<\/script>`);
-            w.document.close();
           }
 
           sizeSel.addEventListener('change', rebuild);

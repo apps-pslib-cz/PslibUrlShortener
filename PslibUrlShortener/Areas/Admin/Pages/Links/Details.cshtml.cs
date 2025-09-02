@@ -1,9 +1,10 @@
-using Microsoft.AspNetCore.Mvc;
+Ôªøusing Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using PslibUrlShortener.Model;
 using PslibUrlShortener.Services;
 using PslibUrlShortener.Services.Options;
+using QRCoder;
 
 namespace PslibUrlShortener.Areas.Admin.Pages.Links
 {
@@ -24,13 +25,13 @@ namespace PslibUrlShortener.Areas.Admin.Pages.Links
         public ViewModel Data { get; private set; } = default!;
         public string? ShortUrlPreview { get; private set; }
 
-        // Query parametry pro str·nkov·nÌ hit˘
+        // Query parametry pro str√°nkov√°n√≠ hit≈Ø
         [BindProperty(SupportsGet = true)] public int? HitsPage { get; set; } = 1;
         [BindProperty(SupportsGet = true)] public int? HitsPageSize { get; set; } = 20;
 
         public async Task<IActionResult> OnGetAsync(int id)
         {
-            // Link + vlastnÌk
+            // Link + vlastn√≠k
             var link = await _linkManager.Query()
                 .AsNoTracking()
                 .Include(l => l.Owner)
@@ -38,7 +39,7 @@ namespace PslibUrlShortener.Areas.Admin.Pages.Links
 
             if (link is null) return NotFound();
 
-            // Postav n·hled kr·tkÈ URL (stejnÏ jako jinde)
+            // Postav n√°hled kr√°tk√© URL (stejnƒõ jako jinde)
             var baseUrl = $"{HttpContext.Request.Scheme}://{HttpContext.Request.Host}";
             try
             {
@@ -49,7 +50,7 @@ namespace PslibUrlShortener.Areas.Admin.Pages.Links
                 ShortUrlPreview = $"{baseUrl}/{link.Code}";
             }
 
-            // NaËti hity (str·nkovanÈ, nejnovÏjöÌ prvnÌ)
+            // Naƒçti hity (str√°nkovan√©, nejnovƒõj≈°√≠ prvn√≠)
             var page = Math.Max(1, HitsPage ?? 1);
             var pageSize = Math.Clamp(HitsPageSize ?? 20, 5, 200);
 
@@ -92,23 +93,25 @@ namespace PslibUrlShortener.Areas.Admin.Pages.Links
             return Page();
         }
 
-        // SoftDelete / Restore p¯Ìmo z detailu (stejnÏ jako na Indexu)
+        // SoftDelete / Restore p≈ô√≠mo z detailu
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> OnPostSoftDeleteAsync(int id)
         {
             try
             {
                 var updated = await _linkManager.SoftDeleteAsync(id);
                 if (updated == null) TempData["FailureMessage"] = "Odkaz nenalezen.";
-                else TempData["SuccessMessage"] = "Odkaz byl oznaËen jako smazan˝.";
+                else TempData["SuccessMessage"] = "Odkaz byl oznaƒçen jako smazan√Ω.";
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Soft delete failed for Id={Id}", id);
-                TempData["FailureMessage"] = "Soft maz·nÌ se nepoda¯ilo.";
+                TempData["FailureMessage"] = "Soft maz√°n√≠ se nepoda≈ôilo.";
             }
             return RedirectToPage(new { id, HitsPage, HitsPageSize });
         }
 
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> OnPostRestoreAsync(int id)
         {
             try
@@ -120,33 +123,64 @@ namespace PslibUrlShortener.Areas.Admin.Pages.Links
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Restore failed for Id={Id}", id);
-                TempData["FailureMessage"] = "ObnovenÌ se nepoda¯ilo.";
+                TempData["FailureMessage"] = "Obnoven√≠ se nepoda≈ôilo.";
             }
             return RedirectToPage(new { id, HitsPage, HitsPageSize });
         }
 
-        public async Task<IActionResult> OnGetQrAsync(int id, string fmt = "svg", int s = 256, QrPreset preset = QrPreset.Default)
+        // QR handler
+        public async Task<IActionResult> OnGetQrAsync(
+            int id,
+            string fmt = "svg",
+            int s = 256,
+            bool inverse = false,
+            double? r = null,
+            string ecc = "M",
+            bool qz = true,
+            int? ver = null,
+            string? fg = null,
+            string? bg = null)
         {
             var link = await _linkManager.Query()
                 .AsNoTracking()
                 .FirstOrDefaultAsync(l => l.Id == id);
             if (link is null) return NotFound();
 
-            var baseUrl = $"{HttpContext.Request.Scheme}://{HttpContext.Request.Host}";
+            var baseUrl = $"{Request.Scheme}://{Request.Host}";
+
+            // Pou≈æij dom√©nu odkazu (ne null), jinak QR nebude spr√°vnƒõ pro custom dom√©ny
             var url = _linkManager.GenerateShortUrl(link.Domain, link.Code, baseUrl);
+
+            var eccLevel = ecc.ToUpperInvariant() switch
+            {
+                "L" => QRCodeGenerator.ECCLevel.L,
+                "Q" => QRCodeGenerator.ECCLevel.Q,
+                "H" => QRCodeGenerator.ECCLevel.H,
+                _ => QRCodeGenerator.ECCLevel.M
+            };
+
+            // P≈ô√°telsk√© o≈ôez√°n√≠ hodnoty r do 0.0‚Äì0.5
+            double? rClamped = r.HasValue ? Math.Clamp(r.Value, 0.0, 0.5) : null;
+
+            var opt = new QrRenderOptions(
+                EccLevel: eccLevel,
+                DrawQuietZones: qz,
+                RequestedVersion: ver,
+                ForegroundHex: fg ?? (inverse ? "#FFFFFF" : "#000000"),
+                BackgroundHex: bg ?? (inverse ? "#000000" : "#FFFFFF"),
+                ModuleRadius: rClamped
+            );
 
             Response.Headers.CacheControl = "public, max-age=604800, immutable";
 
             if (fmt.Equals("png", StringComparison.OrdinalIgnoreCase))
             {
-                var bytes = _qr.GeneratePng(url, s, preset);
-                return File(bytes, "image/png");
+                return File(_qr.GeneratePng(url, s, opt), "image/png");
             }
-            else
-            {
-                var svg = _qr.GenerateSvg(url, preset);
-                return Content(svg, "image/svg+xml; charset=utf-8");
-            }
+
+            // Pro SVG prom√≠tneme po≈æadovanou velikost do pixels-per-module
+            opt = opt with { SvgSizePx = s };
+            return Content(_qr.GenerateSvg(url, opt), "image/svg+xml; charset=utf-8");
         }
 
         public record ViewModel(

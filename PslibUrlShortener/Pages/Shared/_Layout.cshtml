@@ -19,12 +19,17 @@
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/lib/bootstrap-icons/bootstrap-icons.min.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="icon" type="image/x-icon" href="~/favicon.ico" />
 </head>
 <body class="d-flex flex-column min-vh-100">
     <header>
         <nav class="navbar navbar-expand-sm navbar-light bg-white border-bottom box-shadow mb-0">
             <div class="container">
-                <a class="navbar-brand" asp-area="" asp-page="/Index">@appName</a>
+                
+                <a class="navbar-brand" asp-area="" asp-page="/Index">
+                    <img src="~/brand/logo-app.png" alt="Logo" class="me-2" style="height:32px;" />
+                    @appName
+                </a>
 
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
                         data-bs-target="#navMain" aria-controls="navMain"

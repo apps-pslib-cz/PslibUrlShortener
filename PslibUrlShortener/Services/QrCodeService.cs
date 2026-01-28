@@ -1,6 +1,4 @@
-﻿using System.Globalization;
-using System.Text.RegularExpressions;
-using QRCoder;
+﻿using QRCoder;
 using PslibUrlShortener.Services.Options;
 
 namespace PslibUrlShortener.Services
@@ -39,17 +37,6 @@ namespace PslibUrlShortener.Services
             // ostřejší vykreslení pro tisk
             if (!svg.Contains("shape-rendering=\"crispEdges\"", StringComparison.Ordinal))
                 svg = svg.Replace("<svg ", "<svg shape-rendering=\"crispEdges\" ");
-
-            // Zaoblení všech modulů (včetně finder patternů) – přidáme rx/ry
-            if (opt.ModuleRadius is > 0 and <= 0.5)
-            {
-                var r = opt.ModuleRadius.Value.ToString(CultureInfo.InvariantCulture);
-                svg = Regex.Replace(
-                    svg,
-                    @"<rect([^>]*?)width=""1""([^>]*?)height=""1""",
-                    $@"<rect$1width=""1""$2height=""1"" rx=""{r}"" ry=""{r}""",
-                    RegexOptions.CultureInvariant);
-            }
 
             return svg;
         }

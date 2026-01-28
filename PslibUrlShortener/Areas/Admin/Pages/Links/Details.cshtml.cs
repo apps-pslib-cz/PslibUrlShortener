@@ -134,7 +134,6 @@ namespace PslibUrlShortener.Areas.Admin.Pages.Links
             string fmt = "svg",
             int s = 256,
             bool inverse = false,
-            double? r = null,
             string ecc = "M",
             bool qz = true,
             int? ver = null,
@@ -159,16 +158,12 @@ namespace PslibUrlShortener.Areas.Admin.Pages.Links
                 _ => QRCodeGenerator.ECCLevel.M
             };
 
-            // Přátelské ořezání hodnoty r do 0.0–0.5
-            double? rClamped = r.HasValue ? Math.Clamp(r.Value, 0.0, 0.5) : null;
-
             var opt = new QrRenderOptions(
                 EccLevel: eccLevel,
                 DrawQuietZones: qz,
                 RequestedVersion: ver,
                 ForegroundHex: fg ?? (inverse ? "#FFFFFF" : "#000000"),
-                BackgroundHex: bg ?? (inverse ? "#000000" : "#FFFFFF"),
-                ModuleRadius: rClamped
+                BackgroundHex: bg ?? (inverse ? "#000000" : "#FFFFFF")
             );
 
             Response.Headers.CacheControl = "public, max-age=604800, immutable";

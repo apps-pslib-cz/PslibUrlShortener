@@ -73,7 +73,7 @@
 <div class="card border-0 shadow-sm mb-4">
     <div class="card-body">
         <h5 class="card-title mb-3">QR kód</h5>
-        <div class="row row-cols-1 row-cols-sm-3 g-3">
+        <div class="row row-cols-1 row-cols-sm-2 g-3">
 
             <!-- Varianta: Standard -->
             <div class="col">
@@ -108,25 +108,6 @@
                     <a class="btn btn-sm btn-outline-secondary mt-3"
                        href='@Url.Page("./Details", new { id = d.Id, handler = "Qr", fmt = "svg", s = 512, inverse = true })'
                        download='@($"qr-{d.Code}-inv.svg")'>
-                        <i class="bi bi-download"></i> Stáhnout SVG
-                    </a>
-                </div>
-            </div>
-
-            <!-- Varianta: Kulaté moduly -->
-            <div class="col">
-                <div class="h-100 border rounded p-3 d-flex flex-column align-items-center justify-content-between">
-                    <figure class="text-center m-0">
-                        <img src='@Url.Page("./Details", new { id = d.Id, handler = "Qr", fmt = "svg", s = 256, r = 0.5 })'
-                             alt="QR kód – kulaté body"
-                             class="img-fluid"
-                             width="160" height="160"
-                             decoding="async" loading="lazy" />
-                        <figcaption class="small text-muted mt-2">Kulaté body (SVG)</figcaption>
-                    </figure>
-                    <a class="btn btn-sm btn-outline-secondary mt-3"
-                       href='@Url.Page("./Details", new { id = d.Id, handler = "Qr", fmt = "svg", s = 512, r = 0.3 })'
-                       download='@($"qr-{d.Code}-rnd.svg")'>
                         <i class="bi bi-download"></i> Stáhnout SVG
                     </a>
                 </div>

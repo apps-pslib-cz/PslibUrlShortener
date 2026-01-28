@@ -1,4 +1,4 @@
-ï»¿using QRCoder;
+using QRCoder;
 
 namespace PslibUrlShortener.Services.Options
 {
@@ -9,13 +9,10 @@ namespace PslibUrlShortener.Services.Options
         bool ForceUtf8 = true,
         QRCodeGenerator.EciMode Eci = QRCodeGenerator.EciMode.Utf8,
 
-        string? ForegroundHex = null,   // napÅ™. "#000000"
-        string? BackgroundHex = null,   // napÅ™. "#FFFFFF"
+        string? ForegroundHex = null,   // napø. "#000000"
+        string? BackgroundHex = null,   // napø. "#FFFFFF"
 
-        // ZaoblenÃ­ vÅ¡ech modulÅ¯: 0.0â€“0.5 (0.5 = â€žpuntÃ­kyâ€œ)
-        double? ModuleRadius = null,
-
-        // CÃ­lovÃ¡ Å¡Ã­Å™ka/vÃ½Å¡ka vÃ½stupnÃ­ho SVG v pixelech (pokud null, ponechÃ¡ 1 px / modul)
+        // Cílová šíøka/výška výstupního SVG v pixelech (pokud null, ponechá 1 px / modul)
         int? SvgSizePx = null
     )
     {

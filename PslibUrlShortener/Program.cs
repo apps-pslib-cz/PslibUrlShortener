@@ -33,7 +33,11 @@ var config = builder.Configuration;
 builder.Services.AddRouting(o => o.LowercaseUrls = true);
 
 builder.Services.AddDbContext<ApplicationDbContext>(o =>
-    o.UseSqlServer(config.GetConnectionString("DefaultConnection")));
+    o.UseSqlServer(config.GetConnectionString("DefaultConnection"),
+        sqlOptions => sqlOptions.EnableRetryOnFailure(
+            maxRetryCount: 5,
+            maxRetryDelay: TimeSpan.FromSeconds(30),
+            errorNumbersToAdd: null)));
 
 builder.Services.AddAntiforgery(o => o.HeaderName = "X-CSRF-TOKEN");
 builder.Services.Configure<ListingOptions>(config.GetSection("Listing"));
@@ -41,6 +45,11 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<LinkManager>();
 builder.Services.AddScoped<OwnerManager>();
 builder.Services.AddSingleton<IQrCodeService, QrCodeService>();
+
+// Konfigurace a registrace služby pro periodické úkoly (automatické mazání starých odkazů)
+builder.Services.Configure<PeriodicTasksOptions>(
+    builder.Configuration.GetSection("PeriodicTasks"));
+builder.Services.AddHostedService<PeriodicTasksService>();
 
 builder.Services.Configure<AppOptions>(builder.Configuration.GetSection("App"));
 
